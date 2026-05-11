@@ -1,110 +1,206 @@
-'use client'
-import { useState, useEffect, useRef } from 'react'
-import Link from 'next/link'
-import { searchAll } from '@/lib/data'
-import { useBodyLock } from '@/lib/useBodyLock'
+"use client";
+import { useState, useEffect } from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
 
 export default function SearchModal({ onClose }: { onClose: () => void }) {
-  const [query, setQuery] = useState('')
-  const [results, setResults] = useState<ReturnType<typeof searchAll> | null>(null)
-  const inputRef = useRef<HTMLInputElement>(null)
-  useBodyLock(true)
-
-  useEffect(() => { inputRef.current?.focus() }, [])
-  useEffect(() => {
-    if (!query.trim()) { setResults(null); return }
-    const t = setTimeout(() => setResults(searchAll(query)), 150)
-    return () => clearTimeout(t)
-  }, [query])
+  const router = useRouter();
+  const [query, setQuery] = useState("");
+  const [users, setUsers] = useState<any[]>([]);
+  const [posts, setPosts] = useState<any[]>([]);
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    const h = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
-    window.addEventListener('keydown', h)
-    return () => window.removeEventListener('keydown', h)
-  }, [onClose])
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") onClose();
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
 
-  const totalCount = results ? results.posts.length + results.videos.length + results.users.length : 0
+  useEffect(() => {
+    if (!query.trim()) {
+      setUsers([]);
+      setPosts([]);
+      return;
+    }
+    setLoading(true);
+    const q = query.trim().toLowerCase();
+    Promise.all([
+      fetch("/api/db/users", { cache: "no-store" })
+        .then((r) => r.json())
+        .catch(() => []),
+      fetch("/api/db/posts", { cache: "no-store" })
+        .then((r) => r.json())
+        .catch(() => []),
+    ]).then(([u, p]) => {
+      const usersFiltered = (Array.isArray(u) ? u : [])
+        .filter(
+          (x: any) =>
+            (x.name || "").toLowerCase().includes(q) ||
+            (x.username || "").toLowerCase().includes(q),
+        )
+        .slice(0, 8);
+      const postsFiltered = (Array.isArray(p) ? p : [])
+        .filter(
+          (x: any) =>
+            (x.title || "").toLowerCase().includes(q) ||
+            (x.excerpt || "").toLowerCase().includes(q) ||
+            (x.category || "").toLowerCase().includes(q),
+        )
+        .slice(0, 8);
+      setUsers(usersFiltered);
+      setPosts(postsFiltered);
+      setLoading(false);
+    });
+  }, [query]);
+
+  function go(href: string) {
+    onClose();
+    router.push(href);
+  }
 
   return (
-    <div className="fixed inset-0 z-[200] flex flex-col sm:items-center sm:justify-start sm:pt-20 px-4"
-      style={{ background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(6px)' }}
-      onClick={onClose}>
-      <div className="w-full max-w-2xl rounded-2xl overflow-hidden shadow-2xl"
-        style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', maxHeight: '80vh' }}
-        onClick={e => e.stopPropagation()}>
-
-        <div className="flex items-center gap-3 px-4 py-4" style={{ borderBottom: '1px solid var(--border)' }}>
+    <div
+      className="fixed inset-0 z-[200] flex items-start justify-center pt-24 px-4"
+      style={{ background: "rgba(0,0,0,0.7)", backdropFilter: "blur(8px)" }}
+      onClick={onClose}
+    >
+      <div
+        className="w-full max-w-2xl rounded-2xl overflow-hidden shadow-2xl"
+        style={{
+          background: "var(--bg-card)",
+          border: "1px solid var(--border)",
+        }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div
+          className="flex items-center gap-3 p-4"
+          style={{ borderBottom: "1px solid var(--border)" }}
+        >
           <span className="text-xl">🔍</span>
-          <input ref={inputRef} type="text" value={query} onChange={e => setQuery(e.target.value)}
-            placeholder="Makale, video veya kullanıcı ara..."
-            className="flex-1 bg-transparent text-base outline-none" style={{ color: 'var(--text)' }} />
-          {query && <button onClick={() => setQuery('')} style={{ color: 'var(--text-muted)' }}>✕</button>}
-          <kbd className="hidden sm:flex text-xs px-2 py-1 rounded" style={{ background: 'var(--bg-subtle)' }}>Esc</kbd>
+          <input
+            type="text"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            autoFocus
+            placeholder="Yazı, kullanıcı, kategori ara..."
+            className="flex-1 bg-transparent outline-none text-sm"
+            style={{ color: "var(--text)" }}
+          />
+          <button
+            onClick={onClose}
+            className="text-xs px-2 py-1 rounded-md"
+            style={{
+              background: "var(--bg-subtle)",
+              color: "var(--text-muted)",
+            }}
+          >
+            Esc
+          </button>
         </div>
 
-        <div className="overflow-y-auto" style={{ maxHeight: '55vh' }}>
-          {!query && (
-            <div className="px-5 py-8 text-center" style={{ color: 'var(--text-muted)' }}>
-              <div className="text-4xl mb-2">🔭</div>
-              <p className="text-sm">Aramaya başla...</p>
+        <div className="max-h-[60vh] overflow-y-auto">
+          {!query.trim() ? (
+            <div
+              className="p-8 text-center text-sm"
+              style={{ color: "var(--text-muted)" }}
+            >
+              Aramak için yaz...
             </div>
-          )}
-
-          {results && totalCount === 0 && (
-            <div className="px-5 py-8 text-center" style={{ color: 'var(--text-muted)' }}>
-              <p className="text-sm">"{query}" için sonuç bulunamadı</p>
+          ) : loading ? (
+            <div
+              className="p-8 text-center text-sm"
+              style={{ color: "var(--text-muted)" }}
+            >
+              Aranıyor...
             </div>
-          )}
-
-          {results && totalCount > 0 && (
-            <div className="p-3 space-y-1">
-              {results.posts.length > 0 && (
+          ) : users.length === 0 && posts.length === 0 ? (
+            <div
+              className="p-8 text-center text-sm"
+              style={{ color: "var(--text-muted)" }}
+            >
+              "{query}" için sonuç bulunamadı
+            </div>
+          ) : (
+            <div className="p-2">
+              {users.length > 0 && (
                 <>
-                  <p className="text-xs font-semibold uppercase px-3 py-2" style={{ color: 'var(--text-muted)' }}>📝 Makaleler</p>
-                  {results.posts.map(post => (
-                    <Link key={post.id} href={`/blog/${post.slug}`} onClick={onClose}>
-                      <div className="flex items-start gap-3 px-3 py-2.5 rounded-xl cursor-pointer hover:bg-opacity-50" onMouseEnter={e => (e.currentTarget.style.background = 'var(--bg-subtle)')} onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
-                        <span className="text-2xl">{post.coverEmoji}</span>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium line-clamp-1" style={{ color: 'var(--text)' }}>{post.title}</p>
-                          <p className="text-xs" style={{ color: 'var(--text-muted)' }}>{post.category} · {post.readTime}dk</p>
-                        </div>
+                  <p
+                    className="text-[10px] font-semibold uppercase tracking-wider px-3 py-2"
+                    style={{ color: "var(--text-muted)" }}
+                  >
+                    👥 Kullanıcılar
+                  </p>
+                  {users.map((u) => (
+                    <button
+                      key={u.id}
+                      onClick={() => go(`/profile/${u.id}`)}
+                      className="w-full flex items-center gap-3 p-2 rounded-xl text-left hover:bg-opacity-50"
+                      style={{ background: "transparent" }}
+                    >
+                      <div
+                        className="w-9 h-9 rounded-full flex items-center justify-center text-base shrink-0"
+                        style={{
+                          background: `${u.avatarColor || "#1D9E75"}22`,
+                        }}
+                      >
+                        {u.avatar || "👤"}
                       </div>
-                    </Link>
+                      <div className="flex-1 min-w-0">
+                        <p
+                          className="text-sm font-semibold"
+                          style={{ color: "var(--text)" }}
+                        >
+                          {u.name}
+                        </p>
+                        <p
+                          className="text-xs"
+                          style={{ color: "var(--text-muted)" }}
+                        >
+                          @{u.username}
+                        </p>
+                      </div>
+                    </button>
                   ))}
                 </>
               )}
 
-              {results.videos.length > 0 && (
+              {posts.length > 0 && (
                 <>
-                  <p className="text-xs font-semibold uppercase px-3 py-2 mt-2" style={{ color: 'var(--text-muted)' }}>🎬 Videolar</p>
-                  {results.videos.map(v => (
-                    <Link key={v.id} href={`/videolar/${v.slug}`} onClick={onClose}>
-                      <div className="flex items-center gap-3 px-3 py-2.5 rounded-xl cursor-pointer" onMouseEnter={e => (e.currentTarget.style.background = 'var(--bg-subtle)')} onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
-                        <span className="text-2xl">{v.emoji}</span>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium" style={{ color: 'var(--text)' }}>{v.title}</p>
-                          <p className="text-xs" style={{ color: 'var(--text-muted)' }}>{v.duration}</p>
-                        </div>
+                  <p
+                    className="text-[10px] font-semibold uppercase tracking-wider px-3 py-2 mt-2"
+                    style={{ color: "var(--text-muted)" }}
+                  >
+                    📝 Yazılar
+                  </p>
+                  {posts.map((p) => (
+                    <button
+                      key={p.id || p._id}
+                      onClick={() => go(`/blog/${p.slug}`)}
+                      className="w-full flex items-center gap-3 p-2 rounded-xl text-left"
+                    >
+                      <div
+                        className="w-9 h-9 rounded-xl flex items-center justify-center text-base shrink-0"
+                        style={{ background: "var(--bg-subtle)" }}
+                      >
+                        {p.coverEmoji || "📝"}
                       </div>
-                    </Link>
-                  ))}
-                </>
-              )}
-
-              {results.users.length > 0 && (
-                <>
-                  <p className="text-xs font-semibold uppercase px-3 py-2 mt-2" style={{ color: 'var(--text-muted)' }}>👥 Kullanıcılar</p>
-                  {results.users.map(u => (
-                    <Link key={u.id} href={`/profile/${u.id}`} onClick={onClose}>
-                      <div className="flex items-center gap-3 px-3 py-2.5 rounded-xl cursor-pointer" onMouseEnter={e => (e.currentTarget.style.background = 'var(--bg-subtle)')} onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
-                        <div className="w-9 h-9 rounded-full flex items-center justify-center text-xl" style={{ background: `${u.avatarColor}22` }}>{u.avatar}</div>
-                        <div className="flex-1">
-                          <p className="text-sm font-semibold" style={{ color: 'var(--text)' }}>{u.name}</p>
-                          <p className="text-xs" style={{ color: 'var(--text-muted)' }}>@{u.username}</p>
-                        </div>
+                      <div className="flex-1 min-w-0">
+                        <p
+                          className="text-sm font-semibold line-clamp-1"
+                          style={{ color: "var(--text)" }}
+                        >
+                          {p.title}
+                        </p>
+                        <p
+                          className="text-xs"
+                          style={{ color: "var(--text-muted)" }}
+                        >
+                          {p.category} · {p.author?.name}
+                        </p>
                       </div>
-                    </Link>
+                    </button>
                   ))}
                 </>
               )}
@@ -113,5 +209,5 @@ export default function SearchModal({ onClose }: { onClose: () => void }) {
         </div>
       </div>
     </div>
-  )
+  );
 }
