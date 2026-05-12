@@ -5,7 +5,9 @@ import { useAuthGate } from '@/components/auth/AuthGate'
 import { useToast } from '@/components/ui/Toast'
 import ReactionBurst from '@/components/ui/ReactionBurst'
 
-export default function ArticleInteractions({ postId, initialLikes = 0 }: { postId: string; initialLikes?: number }) {
+type Props = { postId: string; initialLikes?: number; postTitle?: string; postSlug?: string; coverEmoji?: string }
+
+export default function ArticleInteractions({ postId, initialLikes = 0, postTitle, postSlug, coverEmoji }: Props) {
   const { requireAuth } = useAuthGate()
   const { show } = useToast()
   const [counts, setCounts] = useState<Record<string, number>>({})
@@ -16,9 +18,13 @@ export default function ArticleInteractions({ postId, initialLikes = 0 }: { post
   const [burst, setBurst] = useState<string | null>(null)
 
   useEffect(() => {
-    fetch(`/api/reactions?postId=${postId}`)
+    fetch(`/api/reactions?postId=${postId}`, { cache: 'no-store' })
       .then(r => r.json())
       .then(d => { setCounts(d.counts || {}); setMine(d.mine) })
+      .catch(() => {})
+    fetch(`/api/saves?postId=${postId}`, { cache: 'no-store' })
+      .then(r => r.json())
+      .then(d => setSaved(!!d.saved))
       .catch(() => {})
   }, [postId])
 
@@ -34,19 +40,24 @@ export default function ArticleInteractions({ postId, initialLikes = 0 }: { post
       if (res.ok) {
         setCounts(d.counts || {})
         setMine(d.mine)
-        if (d.mine === emoji) setBurst(emoji)  // sadece ekleme/değiştirme animasyonu
-      } else {
-        show('error', d.error || 'Tepki verilemedi')
-      }
-    } catch {
-      show('error', 'Bağlantı hatası')
-    }
+        if (d.mine === emoji) setBurst(emoji)
+      } else show('error', d.error || 'Tepki verilemedi')
+    } catch { show('error', 'Bağlantı hatası') }
   }
 
-  function toggleSave() {
+  async function toggleSave() {
     if (!requireAuth('Yazıyı kaydetmek')) return
-    setSaved(p => !p)
-    show('success', saved ? 'Kayıt listesinden çıkarıldı' : 'Okuma listene eklendi')
+    try {
+      const res = await fetch('/api/saves', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ postId, postTitle, postSlug, coverEmoji }),
+      })
+      const d = await res.json()
+      if (res.ok) {
+        setSaved(!!d.saved)
+        show('success', d.saved ? '🔖 Okuma listene eklendi' : 'Kayıt listesinden çıkarıldı')
+      } else show('error', 'İşlem başarısız')
+    } catch { show('error', 'Bağlantı hatası') }
   }
 
   function openPicker() {
@@ -94,7 +105,6 @@ export default function ArticleInteractions({ postId, initialLikes = 0 }: { post
           )}
         </div>
 
-        {/* Inline tepki sayaçları (sadece olan tepkiler görünür) */}
         {totalReactions > 0 && (
           <div className="hidden sm:flex items-center gap-1 px-2 py-1 rounded-xl" style={{ background: 'var(--bg-subtle)' }}>
             {REACTIONS.filter(r => counts[r.emoji] > 0).map(r => (

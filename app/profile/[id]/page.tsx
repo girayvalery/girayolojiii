@@ -9,6 +9,7 @@ import ProfileTabs from '@/components/profile/ProfileTabs'
 import EditProfileModal from '@/components/modals/EditProfileModal'
 import AvatarBuilder from '@/components/profile/AvatarBuilder'
 import FollowButton from '@/components/profile/FollowButton'
+import FollowList from '@/components/profile/FollowList'
 import LevelCard from '@/components/profile/LevelCard'
 import { useToast } from '@/components/ui/Toast'
 
@@ -31,6 +32,7 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
   const [loading, setLoading] = useState(true)
   const [editOpen, setEditOpen] = useState(false)
   const [showAvatarBuilder, setShowAvatarBuilder] = useState(false)
+  const [showFollowList, setShowFollowList] = useState<'followers'|'following'|null>(null)
 
   const load = useCallback(async () => {
     try {
@@ -158,14 +160,14 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
                   <div className="text-base font-semibold" style={{ color: 'var(--text)' }}>{stats.posts || 0}</div>
                   <div className="text-[11px]" style={{ color: 'var(--text-muted)' }}>Yazı</div>
                 </div>
-                <div className="text-center">
+                <button onClick={() => setShowFollowList('followers')} className="text-center cursor-pointer hover:opacity-80">
                   <div className="text-base font-semibold" style={{ color: 'var(--text)' }}>{stats.followers || 0}</div>
                   <div className="text-[11px]" style={{ color: 'var(--text-muted)' }}>Takipçi</div>
-                </div>
-                <div className="text-center">
+                </button>
+                <button onClick={() => setShowFollowList('following')} className="text-center cursor-pointer hover:opacity-80">
                   <div className="text-base font-semibold" style={{ color: 'var(--text)' }}>{stats.following || 0}</div>
                   <div className="text-[11px]" style={{ color: 'var(--text-muted)' }}>Takip</div>
-                </div>
+                </button>
               </div>
 
               <div className="space-y-2">
@@ -233,6 +235,7 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
       </div>
 
       {editOpen && <EditProfileModal user={user} onClose={() => setEditOpen(false)} onSave={handleSave} />}
+      {showFollowList && <FollowList userId={user.id} type={showFollowList} onClose={() => setShowFollowList(null)} />}
     </>
   )
 }
