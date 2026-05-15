@@ -4,7 +4,7 @@ import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { useToast } from '@/components/ui/Toast'
-import { formatDate } from '@/lib/utils'
+import { timeAgo } from '@/lib/utils'
 
 export default function OkumaListesiPage() {
   const { data: session, status } = useSession()
@@ -53,18 +53,18 @@ export default function OkumaListesiPage() {
       ) : (
         <div className="space-y-3">
           {saves.map(s => (
-            <div key={s._id} className="rounded-xl p-4 flex items-center gap-4" style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
-              <div className="w-12 h-12 rounded-xl flex items-center justify-center text-2xl shrink-0" style={{ background: 'var(--bg-subtle)' }}>
-                {s.coverEmoji || '📝'}
+            <Link key={s._id} href={`/blog/${s.postSlug}`} className="block rounded-xl p-4 hover:scale-[1.01] transition-transform" style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
+              <div className="flex items-center gap-4">
+                <div className="w-14 h-14 rounded-xl flex items-center justify-center text-3xl shrink-0" style={{ background: 'var(--bg-subtle)' }}>
+                  {s.coverEmoji || '📝'}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h3 className="text-base font-semibold mb-1 line-clamp-1" style={{ color: 'var(--text)' }}>{s.postTitle || 'Yazı'}</h3>
+                  <p className="text-xs" style={{ color: 'var(--text-muted)' }}>{timeAgo(s.createdAt)} kaydedildi</p>
+                </div>
+                <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); removeSave(s.postId) }} className="text-xs px-3 py-1.5 rounded-lg hover:scale-105" style={{ background: 'rgba(226,75,74,0.1)', color: '#e24b4a' }}>Kaldır</button>
               </div>
-              <div className="flex-1 min-w-0">
-                <Link href={`/blog/${s.postSlug}`} className="text-sm font-semibold hover:text-green-500 line-clamp-1" style={{ color: 'var(--text)' }}>
-                  {s.postTitle}
-                </Link>
-                <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>{formatDate(s.createdAt)} tarihinde kaydedildi</p>
-              </div>
-              <button onClick={() => removeSave(s.postId)} className="text-xs px-3 py-1.5 rounded-lg" style={{ background: 'rgba(226,75,74,0.1)', color: '#e24b4a' }}>Kaldır</button>
-            </div>
+            </Link>
           ))}
         </div>
       )}

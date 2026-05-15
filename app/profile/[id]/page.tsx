@@ -100,10 +100,12 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
 
   const isNewUser = posts.length === 0 && level <= 1
 
-  function handleSave(updates: Partial<User>) {
+  async function handleSave(updates: Partial<User>) {
     setUser(prev => prev ? { ...prev, ...updates } : null)
     setEditOpen(false)
     show('success', 'Profilin güncellendi')
+    // Force refresh from server
+    setTimeout(() => load(), 500)
   }
 
   async function saveAvatar(avatar: string, color: string) {

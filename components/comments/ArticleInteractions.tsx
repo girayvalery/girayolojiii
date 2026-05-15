@@ -16,6 +16,8 @@ export default function ArticleInteractions({ postId, initialLikes = 0, postTitl
   const [saved, setSaved] = useState(false)
   const [copied, setCopied] = useState(false)
   const [burst, setBurst] = useState<string | null>(null)
+  const [rocketed, setRocketed] = useState(false)
+  const [rocketCount, setRocketCount] = useState(0)
 
   useEffect(() => {
     fetch(`/api/reactions?postId=${postId}`, { cache: 'no-store' })
@@ -25,6 +27,10 @@ export default function ArticleInteractions({ postId, initialLikes = 0, postTitl
     fetch(`/api/saves?postId=${postId}`, { cache: 'no-store' })
       .then(r => r.json())
       .then(d => setSaved(!!d.saved))
+      .catch(() => {})
+    fetch(`/api/rockets?postId=${postId}`, { cache: 'no-store' })
+      .then(r => r.json())
+      .then(d => { setRocketed(!!d.rocketed); setRocketCount(d.count || 0) })
       .catch(() => {})
   }, [postId])
 
@@ -42,6 +48,27 @@ export default function ArticleInteractions({ postId, initialLikes = 0, postTitl
         setMine(d.mine)
         if (d.mine === emoji) setBurst(emoji)
       } else show('error', d.error || 'Tepki verilemedi')
+    } catch { show('error', 'Bağlantı hatası') }
+  }
+
+  async function toggleRocket() {
+    if (!requireAuth('Roketlemek')) return
+    try {
+      const res = await fetch('/api/rockets', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ postId }),
+      })
+      const d = await res.json()
+      if (res.ok) {
+        setRocketed(!!d.rocketed)
+        setRocketCount(d.count || 0)
+        if (d.rocketed) {
+          setBurst('🚀')
+          show('success', '🚀 Roketlendi!')
+        } else {
+          show('info', 'Roket kaldırıldı')
+        }
+      }
     } catch { show('error', 'Bağlantı hatası') }
   }
 
@@ -77,6 +104,7 @@ export default function ArticleInteractions({ postId, initialLikes = 0, postTitl
   return (
     <>
       <div className="flex items-center gap-2 py-3 flex-wrap">
+        {/* Tepki Ver */}
         <div className="relative">
           <button onClick={openPicker}
             className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium hover:scale-105 transition-all"
@@ -105,6 +133,21 @@ export default function ArticleInteractions({ postId, initialLikes = 0, postTitl
           )}
         </div>
 
+        {/* 🚀 ROKETLE */}
+        <button onClick={toggleRocket}
+          className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold hover:scale-105 transition-all"
+          style={{
+            background: rocketed ? 'linear-gradient(135deg, #FF6B35, #D85A30)' : 'var(--bg-card)',
+            color: rocketed ? '#fff' : 'var(--text-muted)',
+            border: `1px solid ${rocketed ? '#FF6B35' : 'var(--border)'}`,
+            boxShadow: rocketed ? '0 4px 16px rgba(255,107,53,0.4)' : 'none',
+          }}>
+          <span className="text-base">🚀</span>
+          <span>{rocketed ? 'Roketlendi' : 'Roketle'}</span>
+          {rocketCount > 0 && <span className="font-bold">{rocketCount}</span>}
+        </button>
+
+        {/* Inline tepki sayaçları */}
         {totalReactions > 0 && (
           <div className="hidden sm:flex items-center gap-1 px-2 py-1 rounded-xl" style={{ background: 'var(--bg-subtle)' }}>
             {REACTIONS.filter(r => counts[r.emoji] > 0).map(r => (

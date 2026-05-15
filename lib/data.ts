@@ -104,7 +104,7 @@ export type Comment = {
   replies?: Comment[]
 }
 
-export type Reaction = '💡' | '🔥' | '❤️' | '👏' | '🤯'
+export type Reaction = '💡' | '🔥' | '❤️' | '👏' | '🤯' | '😂'
 
 export type Badge = {
   id: string
@@ -278,6 +278,7 @@ export const REACTIONS: { emoji: Reaction; label: string }[] = [
   { emoji: '❤️', label: 'Sevdim' },
   { emoji: '👏', label: 'Tebrikler' },
   { emoji: '🤯', label: 'İnanılmaz' },
+  { emoji: '😂', label: 'Çok Komik' },
 ]
 
 export const ALL_BADGES: Badge[] = [

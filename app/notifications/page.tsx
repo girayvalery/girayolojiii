@@ -7,8 +7,12 @@ import { timeAgo } from '@/lib/utils'
 
 type Notif = {
   _id: string; type: string; emoji?: string;
-  fromUserName?: string; postSlug?: string; postTitle?: string;
-  commentPreview?: string; read: boolean; createdAt: string;
+  fromUserId?: string; fromUserName?: string;
+  postSlug?: string; postTitle?: string;
+  commentPreview?: string; level?: number;
+  questTitle?: string; questIcon?: string;
+  rejectNote?: string;
+  read: boolean; createdAt: string;
 }
 
 export default function NotificationsPage() {
@@ -21,14 +25,22 @@ export default function NotificationsPage() {
   useEffect(() => {
     if (status === 'unauthenticated') router.replace('/auth/login')
     if (status === 'authenticated') {
-      fetch('/api/notifications').then(r => r.json()).then(d => { setItems(d.items || []); setLoading(false) })
+      fetch('/api/notifications', { cache: 'no-store' }).then(r => r.json()).then(d => { setItems(d.items || []); setLoading(false) })
     }
   }, [status, router])
 
   async function markAll() {
     await fetch('/api/notifications', { method: 'PATCH' })
-    const d = await fetch('/api/notifications').then(r => r.json())
+    const d = await fetch('/api/notifications', { cache: 'no-store' }).then(r => r.json())
     setItems(d.items || [])
+  }
+
+  async function markOne(id: string) {
+    await fetch('/api/notifications', {
+      method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id })
+    })
+    setItems(p => p.map(n => n._id === id ? { ...n, read: true } : n))
   }
 
   if (status === 'loading' || !session) return <div className="min-h-[60vh] flex items-center justify-center"><div className="w-8 h-8 border-2 border-green-500 border-t-transparent rounded-full animate-spin" /></div>
@@ -37,15 +49,30 @@ export default function NotificationsPage() {
 
   function getMessage(n: Notif): string {
     if (n.type === 'reaction') return `${n.fromUserName} yazına ${n.emoji || '💡'} tepki verdi`
-    if (n.type === 'comment') return `${n.fromUserName} yazına yorum yaptı: "${(n.commentPreview || '').slice(0, 60)}..."`
+    if (n.type === 'comment') return `${n.fromUserName} yazına yorum yaptı`
     if (n.type === 'follow') return `${n.fromUserName} seni takip etmeye başladı`
     if (n.type === 'mention') return `${n.fromUserName} seni etiketledi`
     if (n.type === 'newPost') return `${n.fromUserName} yeni yazı yayınladı`
+    if (n.type === 'rocket') return `${n.fromUserName} yazını 🚀 roketledi`
+    if (n.type === 'postPublished') return `🎉 Yazın yayında!`
+    if (n.type === 'postRejected') return `❌ Yazın reddedildi${n.rejectNote ? ': ' + n.rejectNote : ''}`
+    if (n.type === 'levelUp') return `🏆 Seviye ${n.level} kazandın: ${n.questTitle} ${n.questIcon}`
     return 'Yeni bildirim'
   }
 
+  function getLink(n: Notif): string {
+    if (n.postSlug) return `/blog/${n.postSlug}`
+    if (n.type === 'follow' && n.fromUserId) return `/profile/${n.fromUserId}`
+    if (n.type === 'levelUp' && session?.user) return `/profile/${(session.user as any).id}`
+    return '#'
+  }
+
   function getIcon(n: Notif): string {
-    const map: Record<string, string> = { reaction: n.emoji || '❤️', comment: '💬', follow: '➕', mention: '@', newPost: '📝' }
+    if (n.type === 'levelUp') return n.questIcon || '🏆'
+    const map: Record<string, string> = {
+      reaction: n.emoji || '❤️', comment: '💬', follow: '➕', mention: '@', newPost: '📝',
+      rocket: '🚀', postPublished: '🎉', postRejected: '❌',
+    }
     return map[n.type] || '🔔'
   }
 
@@ -88,13 +115,14 @@ export default function NotificationsPage() {
             <p style={{ color: 'var(--text-muted)' }}>Bildirim yok</p>
           </div>
         ) : filtered.map(n => (
-          <Link key={n._id} href={n.postSlug ? `/blog/${n.postSlug}` : '#'}>
-            <div className="flex items-start gap-3 p-4 rounded-xl cursor-pointer transition-all"
+          <Link key={n._id} href={getLink(n)} onClick={() => !n.read && markOne(n._id)}>
+            <div className="flex items-start gap-3 p-4 rounded-xl cursor-pointer transition-all hover:scale-[1.005]"
               style={{
                 background: !n.read ? 'rgba(29,158,117,0.05)' : 'var(--bg-card)',
                 border: '1px solid var(--border)',
               }}>
-              <div className="w-10 h-10 rounded-full flex items-center justify-center text-lg shrink-0" style={{ background: 'rgba(29,158,117,0.15)' }}>
+              <div className="w-10 h-10 rounded-full flex items-center justify-center text-lg shrink-0"
+                style={{ background: n.type === 'levelUp' ? 'rgba(212,172,42,0.2)' : 'rgba(29,158,117,0.15)' }}>
                 {getIcon(n)}
               </div>
               <div className="flex-1 min-w-0">

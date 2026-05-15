@@ -73,17 +73,66 @@ function slugifyHeading(text: string): string {
 }
 
 function renderContent(content: string) {
-  return content.split('\n\n').map((block, i) => {
-    if (block.startsWith('## ')) {
-      const text = block.slice(3)
+  // Önce paragraflara böl (\n\n veya tek \n iki kere ardarda)
+  const blocks = content.split(/\n\s*\n/)
+  return blocks.map((block, i) => {
+    const trimmed = block.trim()
+    if (!trimmed) return null
+
+    // Başlık
+    if (trimmed.startsWith('### ')) {
+      const text = trimmed.slice(4)
+      return <h3 key={i} className="text-lg font-semibold mt-6 mb-3" style={{ color: 'var(--text)' }}>{text}</h3>
+    }
+    if (trimmed.startsWith('## ')) {
+      const text = trimmed.slice(3)
       return (
         <h2 key={i} id={slugifyHeading(text)} className="text-2xl font-semibold mt-10 mb-4 scroll-mt-20" style={{ color: '#1D9E75' }}>
           {text}
         </h2>
       )
     }
-    return <p key={i} className="mb-6 leading-relaxed" style={{ color: 'var(--text)', fontFamily: 'var(--font-body)', fontSize: '1.05rem', lineHeight: '1.9' }}>{block}</p>
-  })
+    if (trimmed.startsWith('# ')) {
+      const text = trimmed.slice(2)
+      return <h1 key={i} className="text-3xl font-bold mt-12 mb-6" style={{ color: 'var(--text)' }}>{text}</h1>
+    }
+
+    // Liste
+    if (trimmed.startsWith('- ') || trimmed.startsWith('* ')) {
+      const items = trimmed.split('\n').filter(l => l.startsWith('- ') || l.startsWith('* '))
+      return (
+        <ul key={i} className="mb-6 list-disc pl-6 space-y-2" style={{ color: 'var(--text)', fontFamily: 'var(--font-body)', fontSize: '1.05rem' }}>
+          {items.map((it, j) => <li key={j}>{it.slice(2)}</li>)}
+        </ul>
+      )
+    }
+
+    // Numara listesi
+    if (/^\d+\.\s/.test(trimmed)) {
+      const items = trimmed.split('\n').filter(l => /^\d+\.\s/.test(l))
+      return (
+        <ol key={i} className="mb-6 list-decimal pl-6 space-y-2" style={{ color: 'var(--text)', fontFamily: 'var(--font-body)', fontSize: '1.05rem' }}>
+          {items.map((it, j) => <li key={j}>{it.replace(/^\d+\.\s/, '')}</li>)}
+        </ol>
+      )
+    }
+
+    // Bold
+    const withBold = trimmed.split(/(\*\*[^*]+\*\*)/).map((part, j) => {
+      if (part.startsWith('**') && part.endsWith('**')) {
+        return <strong key={j} style={{ color: 'var(--text)' }}>{part.slice(2, -2)}</strong>
+      }
+      return part
+    })
+
+    // Tek \n'leri <br> ile koru
+    const lines = trimmed.split('\n')
+    return (
+      <p key={i} className="mb-6 leading-relaxed whitespace-pre-line" style={{ color: 'var(--text)', fontFamily: 'var(--font-body)', fontSize: '1.05rem', lineHeight: '1.9' }}>
+        {lines.length > 1 ? lines.join('\n') : withBold}
+      </p>
+    )
+  }).filter(Boolean)
 }
 
 export default async function BlogDetailPage({ params }: { params: { slug: string } }) {

@@ -14,10 +14,30 @@ export function timeAgo(dateStr: string | Date): string {
   const now = Date.now()
   const then = new Date(dateStr).getTime()
   const diff = Math.floor((now - then) / 1000)
-  if (diff < 60) return 'şimdi'
-  if (diff < 3600) return `${Math.floor(diff / 60)} dakika önce`
-  if (diff < 86400) return `${Math.floor(diff / 3600)} saat önce`
-  if (diff < 604800) return `${Math.floor(diff / 86400)} gün önce`
+
+  if (diff < 30) return 'şimdi'
+  if (diff < 60) return `${diff} sn önce`
+  if (diff < 3600) {
+    const mins = Math.floor(diff / 60)
+    return `${mins} dk önce`
+  }
+  if (diff < 86400) {
+    const hrs = Math.floor(diff / 3600)
+    return `${hrs} saat önce`
+  }
+  if (diff < 604800) {
+    const days = Math.floor(diff / 86400)
+    return `${days} gün önce`
+  }
+  if (diff < 2592000) {
+    const weeks = Math.floor(diff / 604800)
+    return `${weeks} hafta önce`
+  }
+  if (diff < 31536000) {
+    const months = Math.floor(diff / 2592000)
+    return `${months} ay önce`
+  }
+  // 1 yıldan fazlaysa tam tarih
   return formatDate(dateStr)
 }
 

@@ -1,6 +1,7 @@
 'use client'
 import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { useSession } from 'next-auth/react'
 import { timeAgo } from '@/lib/utils'
 
@@ -16,12 +17,14 @@ type Notif = {
   level?: number
   questTitle?: string
   questIcon?: string
+  rejectNote?: string
   read: boolean
   createdAt: string
 }
 
 export default function NotificationBell() {
   const { data: session } = useSession()
+  const router = useRouter()
   const [open, setOpen] = useState(false)
   const [items, setItems] = useState<Notif[]>([])
   const [unread, setUnread] = useState(0)
@@ -56,6 +59,21 @@ export default function NotificationBell() {
     load()
   }
 
+  async function markOneRead(id: string) {
+    await fetch('/api/notifications', {
+      method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id })
+    })
+    setItems(p => p.map(n => n._id === id ? { ...n, read: true } : n))
+    setUnread(p => Math.max(0, p - 1))
+  }
+
+  function handleClick(n: Notif) {
+    if (!n.read && n._id) markOneRead(n._id)
+    setOpen(false)
+    router.push(getLink(n))
+  }
+
   function getMessage(n: Notif): string {
     if (n.type === 'reaction') return `${n.fromUserName} yazına ${n.emoji || '💡'} tepki verdi`
     if (n.type === 'comment') return `${n.fromUserName} yazına yorum yaptı`
@@ -63,6 +81,9 @@ export default function NotificationBell() {
     if (n.type === 'mention') return `${n.fromUserName} seni etiketledi`
     if (n.type === 'newPost') return `${n.fromUserName} yeni yazı yayınladı`
     if (n.type === 'levelUp') return `Seviye ${n.level} kazandın: ${n.questTitle} ${n.questIcon}`
+    if (n.type === 'rocket') return `${n.fromUserName} yazını 🚀 roketledi`
+    if (n.type === 'postPublished') return `🎉 Yazın yayında!`
+    if (n.type === 'postRejected') return `❌ Yazın reddedildi${(n as any).rejectNote ? ': ' + (n as any).rejectNote : ''}`
     return n.commentPreview || 'Yeni bildirim'
   }
 
@@ -77,10 +98,8 @@ export default function NotificationBell() {
     if (n.type === 'levelUp') return n.questIcon || '🏆'
     const map: Record<string, string> = {
       reaction: n.emoji || '❤️',
-      comment: '💬',
-      follow: '➕',
-      mention: '@',
-      newPost: '📝',
+      comment: '💬', follow: '➕', mention: '@', newPost: '📝',
+      rocket: '🚀', postPublished: '🎉', postRejected: '❌',
     }
     return map[n.type] || '🔔'
   }
@@ -116,8 +135,8 @@ export default function NotificationBell() {
                 <p className="text-sm">Henüz bildirim yok</p>
               </div>
             ) : items.map(n => (
-              <Link key={n._id} href={getLink(n)} onClick={() => setOpen(false)}
-                className="flex items-start gap-3 px-4 py-3 transition-colors"
+              <button key={n._id} onClick={() => handleClick(n)}
+                className="w-full text-left flex items-start gap-3 px-4 py-3 transition-colors hover:bg-opacity-50"
                 style={{ background: !n.read ? 'rgba(29,158,117,0.05)' : 'transparent', borderBottom: '1px solid var(--border)' }}>
                 <div className="w-8 h-8 rounded-full flex items-center justify-center text-base shrink-0"
                   style={{ background: n.type === 'levelUp' ? 'rgba(212,172,42,0.2)' : 'rgba(29,158,117,0.15)' }}>
@@ -129,7 +148,7 @@ export default function NotificationBell() {
                   <p className="text-[10px] mt-1" style={{ color: 'var(--text-muted)' }}>{timeAgo(n.createdAt)}</p>
                 </div>
                 {!n.read && <span className="w-2 h-2 rounded-full mt-2 shrink-0" style={{ background: '#1D9E75' }} />}
-              </Link>
+              </button>
             ))}
           </div>
 

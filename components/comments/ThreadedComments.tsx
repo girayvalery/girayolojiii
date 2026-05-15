@@ -1,4 +1,5 @@
 'use client'
+import Link from 'next/link'
 import { useState, useEffect } from 'react'
 import { useSession } from 'next-auth/react'
 import { timeAgo } from '@/lib/utils'
@@ -54,28 +55,33 @@ function CommentNode({ comment, depth = 0, currentUserId, onReply, onLike, onDel
     <div className={`${indent > 0 ? 'ml-4 pl-3' : ''}`} style={{ borderLeft: indent > 0 ? '2px solid #33333355' : 'none' }}>
       <div className="py-3">
         <div className="flex items-center gap-2 mb-2">
-          <button onClick={() => setCollapsed(p => !p)}
-            className="w-7 h-7 rounded-full flex items-center justify-center text-sm shrink-0"
+          <Link href={`/profile/${comment.author.id}`}
+            className="w-7 h-7 rounded-full flex items-center justify-center text-sm shrink-0 hover:scale-110 transition-transform"
             style={{ background: `${comment.author.avatarColor}22` }}>
             {comment.author.avatar}
-          </button>
-          <span className="text-xs font-semibold" style={{ color: 'var(--text)' }}>{comment.author.name}</span>
+          </Link>
+          <Link href={`/profile/${comment.author.id}`} className="text-xs font-semibold hover:text-green-500" style={{ color: 'var(--text)' }}>
+            {comment.author.name}
+          </Link>
           <span className="text-xs" style={{ color: 'var(--text-muted)' }}>{timeAgo(comment.createdAt)}</span>
-          {isOwn && (
-            <button onClick={() => onDelete(comment.id)} className="ml-auto text-xs hover:text-red-500" style={{ color: 'var(--text-muted)' }} title="Sil">🗑️</button>
+          <button onClick={() => setCollapsed(p => !p)} className="text-xs ml-1" style={{ color: 'var(--text-muted)' }} title="Gizle/Aç">
+            {collapsed ? '▶' : '▼'}
+          </button>
+          {isOwn && !collapsed && (
+            <button onClick={() => onDelete(comment.id)} className="text-xs ml-auto hover:text-red-500" style={{ color: 'var(--text-muted)' }} title="Sil">🗑️</button>
           )}
         </div>
 
         {!collapsed && (
           <>
-            <p className="text-sm leading-relaxed mb-2 pl-9" style={{ color: 'var(--text)', fontFamily: 'var(--font-body)' }}>{comment.content}</p>
+            <p className="text-sm leading-relaxed mb-2 pl-9 whitespace-pre-wrap" style={{ color: 'var(--text)', fontFamily: 'var(--font-body)' }}>{comment.content}</p>
             <div className="flex items-center gap-3 pl-9">
+              <button onClick={startReply} className="text-xs font-medium hover:text-green-500" style={{ color: 'var(--text-muted)' }}>💬 Yanıtla</button>
               <button onClick={handleLike}
-                className="flex items-center gap-1 text-xs font-medium hover:scale-110 transition-all"
+                className="ml-auto flex items-center gap-1 text-xs font-medium hover:scale-110 transition-all"
                 style={{ color: hasLiked ? '#1D9E75' : 'var(--text-muted)' }}>
                 <span>{hasLiked ? '👍' : '👍🏻'}</span> {comment.likes || 0}
               </button>
-              <button onClick={startReply} className="text-xs font-medium hover:text-green-500" style={{ color: 'var(--text-muted)' }}>💬 Yanıtla</button>
             </div>
 
             {replying && (

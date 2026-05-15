@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import { getDb } from '@/lib/mongodb'
-import { POSTS as fallbackPosts, type Post } from '@/lib/data'
+import { POSTS as fallbackPosts, getAllReels, type Post } from '@/lib/data'
 import StoriesBar from '@/components/stories/StoriesBar'
 import FeaturedCarousel from '@/components/feed/FeaturedCarousel'
 import FeedItem from '@/components/feed/FeedItem'
@@ -33,11 +33,20 @@ async function fetchPosts(): Promise<Post[]> {
   }
 }
 
+async function fetchReels() {
+  try {
+    const db = await getDb()
+    const docs = await db.collection('reels').find({}).sort({ publishedAt: -1 }).limit(8).toArray()
+    if (docs.length > 0) return docs
+  } catch {}
+  return getAllReels().slice(0, 8)
+}
+
 export default async function Home() {
   const posts = await fetchPosts()
-  // Featured üstte, kalan akış olarak — yeniden eskiye sıralı
+  const reels = await fetchReels()
   const featured = posts.filter(p => p.featured).slice(0, 6)
-  const feed = posts // tümü, yeniden eskiye
+  const feed = posts
 
   return (
     <>
@@ -48,8 +57,34 @@ export default async function Home() {
           <aside className="hidden lg:block"><LeftSidebar /></aside>
 
           <div className="space-y-6 min-w-0">
+            {/* Hikayeler - kendi paneli */}
             <StoriesBar />
 
+            {/* Kısa Videolar - kendi paneli */}
+            {reels.length > 0 && (
+              <section className="rounded-2xl p-4" style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
+                <div className="flex items-center justify-between mb-3">
+                  <h2 className="text-base font-semibold flex items-center gap-2" style={{ color: 'var(--text)' }}>
+                    <span style={{ color: '#1D9E75' }}>|</span> ⚡ Kısa Videolar
+                  </h2>
+                  <Link href="/reels" className="text-xs font-medium" style={{ color: '#1D9E75' }}>Tümü →</Link>
+                </div>
+                <div className="flex gap-3 overflow-x-auto pb-1 scrollbar-none">
+                  {reels.map((r: any) => (
+                    <Link key={r.id || r._id} href={`/reels?id=${r.id || r._id}`} className="shrink-0 w-32 rounded-xl overflow-hidden hover:scale-105 transition-all" style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border)' }}>
+                      <div className={`relative h-44 flex items-center justify-center text-5xl bg-gradient-to-b ${r.bgGradient || 'from-purple-900 to-purple-700'}`}>
+                        {r.emoji || '⚡'}
+                      </div>
+                      <div className="p-2">
+                        <p className="text-xs font-medium line-clamp-2" style={{ color: 'var(--text)' }}>{r.title}</p>
+                      </div>
+                    </Link>
+                  ))}
+                </div>
+              </section>
+            )}
+
+            {/* Featured - öne çıkanlar */}
             {featured.length > 0 && (
               <section>
                 <div className="flex items-center justify-between mb-3">
@@ -62,6 +97,7 @@ export default async function Home() {
               </section>
             )}
 
+            {/* Akış - SADECE blog yazıları */}
             <section>
               <h2 className="text-base font-semibold flex items-center gap-2 mb-3" style={{ color: 'var(--text)' }}>
                 <span style={{ color: '#1D9E75' }}>|</span> Akış
