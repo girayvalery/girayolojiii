@@ -27,7 +27,9 @@ export const authOptions: NextAuthOptions = {
             role: user.role,
             avatar: user.avatar,
             avatarColor: user.avatarColor,
+            avatarConfig: user.avatarConfig || null,
             photoUrl: user.photoUrl,
+            bio: user.bio || '',
           } as any
         } catch {
           return null
@@ -44,14 +46,25 @@ export const authOptions: NextAuthOptions = {
         token.role = u.role || 'UYE'
         token.avatar = u.avatar
         token.avatarColor = u.avatarColor
+        token.avatarConfig = u.avatarConfig
         token.photoUrl = u.photoUrl
+        token.bio = u.bio
       }
-      // session güncellemesi tetiklenirse token'ı yenile
-      if (trigger === 'update' && session) {
-        token.name = session.name ?? token.name
-        token.username = session.username ?? token.username
-        token.avatar = session.avatar ?? token.avatar
-        token.photoUrl = session.photoUrl ?? token.photoUrl
+      // Her seferinde MongoDB'den güncel verileri al (session refresh çağrılırsa)
+      if (trigger === 'update' || (token.id && !token.avatarConfig)) {
+        try {
+          const db = await getDb()
+          const dbUser = await db.collection('users').findOne({ id: token.id })
+          if (dbUser) {
+            token.name = dbUser.name
+            token.username = dbUser.username
+            token.avatar = dbUser.avatar
+            token.avatarColor = dbUser.avatarColor
+            token.avatarConfig = dbUser.avatarConfig
+            token.photoUrl = dbUser.photoUrl
+            token.bio = dbUser.bio
+          }
+        } catch {}
       }
       return token
     },
@@ -62,7 +75,9 @@ export const authOptions: NextAuthOptions = {
         ;(session.user as any).role = token.role || 'UYE'
         ;(session.user as any).avatar = token.avatar
         ;(session.user as any).avatarColor = token.avatarColor
+        ;(session.user as any).avatarConfig = token.avatarConfig
         ;(session.user as any).photoUrl = token.photoUrl
+        ;(session.user as any).bio = token.bio
       }
       return session
     },
