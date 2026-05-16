@@ -1,165 +1,286 @@
-'use client'
-import { useState, useEffect, useRef } from 'react'
-import Link from 'next/link'
-import { useRouter } from 'next/navigation'
-import { useSession } from 'next-auth/react'
-import { timeAgo } from '@/lib/utils'
+"use client";
+import { useState, useEffect, useRef } from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useSession } from "next-auth/react";
+import { timeAgo } from "@/lib/utils";
 
 type Notif = {
-  _id?: string
-  type: string
-  emoji?: string
-  fromUserName?: string
-  fromUserId?: string
-  postSlug?: string
-  postTitle?: string
-  commentPreview?: string
-  level?: number
-  questTitle?: string
-  questIcon?: string
-  rejectNote?: string
-  read: boolean
-  createdAt: string
-}
+  _id?: string;
+  type: string;
+  emoji?: string;
+  fromUserName?: string;
+  fromUserId?: string;
+  postSlug?: string;
+  postTitle?: string;
+  commentPreview?: string;
+  level?: number;
+  questTitle?: string;
+  questIcon?: string;
+  rejectNote?: string;
+  read: boolean;
+  createdAt: string;
+};
 
 export default function NotificationBell() {
-  const { data: session } = useSession()
-  const router = useRouter()
-  const [open, setOpen] = useState(false)
-  const [items, setItems] = useState<Notif[]>([])
-  const [unread, setUnread] = useState(0)
-  const ref = useRef<HTMLDivElement>(null)
+  const { data: session } = useSession();
+  const router = useRouter();
+  const [open, setOpen] = useState(false);
+  const [items, setItems] = useState<Notif[]>([]);
+  const [unread, setUnread] = useState(0);
+  const ref = useRef<HTMLDivElement>(null);
 
   async function load() {
-    if (!session?.user) return
+    if (!session?.user) return;
     try {
-      const res = await fetch('/api/notifications', { cache: 'no-store' })
-      const d = await res.json()
-      setItems(d.items || [])
-      setUnread(d.unread || 0)
+      const res = await fetch("/api/notifications", { cache: "no-store" });
+      const d = await res.json();
+      const prevUnread = unread;
+      setItems(d.items || []);
+      setUnread(d.unread || 0);
+      if ((d.unread || 0) > prevUnread && prevUnread !== 0) {
+        playNotificationSound();
+      }
     } catch {}
   }
 
+  function playNotificationSound() {
+    try {
+      const ctx = new (
+        window.AudioContext || (window as any).webkitAudioContext
+      )();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.frequency.value = 880;
+      gain.gain.setValueAtTime(0.3, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.3);
+      osc.start(ctx.currentTime);
+      osc.stop(ctx.currentTime + 0.3);
+      const osc2 = ctx.createOscillator();
+      const gain2 = ctx.createGain();
+      osc2.connect(gain2);
+      gain2.connect(ctx.destination);
+      osc2.frequency.value = 660;
+      gain2.gain.setValueAtTime(0.3, ctx.currentTime + 0.15);
+      gain2.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.5);
+      osc2.start(ctx.currentTime + 0.15);
+      osc2.stop(ctx.currentTime + 0.5);
+    } catch (e) {
+      console.log("Ses çalınamadı:", e);
+    }
+  }
+
   useEffect(() => {
-    load()
-    const i = setInterval(load, 30000)
-    return () => clearInterval(i)
-  }, [session])
+    load();
+    const i = setInterval(load, 30000);
+    return () => clearInterval(i);
+  }, [session]);
 
   useEffect(() => {
     function handleClick(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
+      if (ref.current && !ref.current.contains(e.target as Node))
+        setOpen(false);
     }
-    if (open) document.addEventListener('mousedown', handleClick)
-    return () => document.removeEventListener('mousedown', handleClick)
-  }, [open])
+    if (open) document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, [open]);
 
   async function markAllRead() {
-    await fetch('/api/notifications', { method: 'PATCH' })
-    load()
+    await fetch("/api/notifications", { method: "PATCH" });
+    load();
   }
 
   async function markOneRead(id: string) {
-    await fetch('/api/notifications', {
-      method: 'PATCH', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id })
-    })
-    setItems(p => p.map(n => n._id === id ? { ...n, read: true } : n))
-    setUnread(p => Math.max(0, p - 1))
+    await fetch("/api/notifications", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id }),
+    });
+    setItems((p) => p.map((n) => (n._id === id ? { ...n, read: true } : n)));
+    setUnread((p) => Math.max(0, p - 1));
   }
 
   function handleClick(n: Notif) {
-    if (!n.read && n._id) markOneRead(n._id)
-    setOpen(false)
-    router.push(getLink(n))
+    if (!n.read && n._id) markOneRead(n._id);
+    setOpen(false);
+    router.push(getLink(n));
   }
 
   function getMessage(n: Notif): string {
-    if (n.type === 'reaction') return `${n.fromUserName} yazına ${n.emoji || '💡'} tepki verdi`
-    if (n.type === 'comment') return `${n.fromUserName} yazına yorum yaptı`
-    if (n.type === 'follow') return `${n.fromUserName} seni takip etmeye başladı`
-    if (n.type === 'mention') return `${n.fromUserName} seni etiketledi`
-    if (n.type === 'newPost') return `${n.fromUserName} yeni yazı yayınladı`
-    if (n.type === 'levelUp') return `Seviye ${n.level} kazandın: ${n.questTitle} ${n.questIcon}`
-    if (n.type === 'rocket') return `${n.fromUserName} yazını 🚀 roketledi`
-    if (n.type === 'postPublished') return `🎉 Yazın yayında!`
-    if (n.type === 'postRejected') return `❌ Yazın reddedildi${(n as any).rejectNote ? ': ' + (n as any).rejectNote : ''}`
-    if (n.type === 'storyReaction') return `${n.fromUserName} hikayene ${n.emoji || '❤️'} tepki verdi`
-    return n.commentPreview || 'Yeni bildirim'
+    if (n.type === "reaction")
+      return `${n.fromUserName} yazına ${n.emoji || "💡"} tepki verdi`;
+    if (n.type === "comment") return `${n.fromUserName} yazına yorum yaptı`;
+    if (n.type === "follow")
+      return `${n.fromUserName} seni takip etmeye başladı`;
+    if (n.type === "mention") return `${n.fromUserName} seni etiketledi`;
+    if (n.type === "newPost") return `${n.fromUserName} yeni yazı yayınladı`;
+    if (n.type === "levelUp")
+      return `Seviye ${n.level} kazandın: ${n.questTitle} ${n.questIcon}`;
+    if (n.type === "rocket") return `${n.fromUserName} yazını 🚀 roketledi`;
+    if (n.type === "postPublished") return `🎉 Yazın yayında!`;
+    if (n.type === "postRejected")
+      return `❌ Yazın reddedildi${(n as any).rejectNote ? ": " + (n as any).rejectNote : ""}`;
+    if (n.type === "storyReaction")
+      return `${n.fromUserName} hikayene ${n.emoji || "❤️"} tepki verdi`;
+    return n.commentPreview || "Yeni bildirim";
   }
 
   function getLink(n: Notif): string {
-    if (n.type === 'levelUp' && session?.user) return `/profile/${(session.user as any).id}`
-    if (n.type === 'follow' && n.fromUserId) return `/profile/${n.fromUserId}`
-    if (n.postSlug) return `/blog/${n.postSlug}`
-    return '/notifications'
+    if (n.type === "levelUp" && session?.user)
+      return `/profile/${(session.user as any).id}`;
+    if (n.type === "follow" && n.fromUserId) return `/profile/${n.fromUserId}`;
+    if (n.postSlug) return `/blog/${n.postSlug}`;
+    return "/notifications";
   }
 
   function getIcon(n: Notif): string {
-    if (n.type === 'levelUp') return n.questIcon || '🏆'
+    if (n.type === "levelUp") return n.questIcon || "🏆";
     const map: Record<string, string> = {
-      reaction: n.emoji || '❤️',
-      comment: '💬', follow: '➕', mention: '@', newPost: '📝',
-      rocket: '🚀', postPublished: '🎉', postRejected: '❌', storyReaction: n.emoji || '❤️',
-    }
-    return map[n.type] || '🔔'
+      reaction: n.emoji || "❤️",
+      comment: "💬",
+      follow: "➕",
+      mention: "@",
+      newPost: "📝",
+      rocket: "🚀",
+      postPublished: "🎉",
+      postRejected: "❌",
+      storyReaction: n.emoji || "❤️",
+    };
+    return map[n.type] || "🔔";
   }
 
   return (
     <div ref={ref} className="relative">
-      <button onClick={() => setOpen(p => !p)}
+      <button
+        onClick={() => setOpen((p) => !p)}
         className="relative w-9 h-9 rounded-full flex items-center justify-center transition-all hover:scale-105"
-        style={{ background: 'var(--bg-subtle)', color: 'var(--text-muted)' }}>
-        <span className={`text-base ${unread > 0 ? 'animate-shake' : ''}`}>🔔</span>
+        style={{ background: "var(--bg-subtle)", color: "var(--text-muted)" }}
+      >
+        <span className={`text-base ${unread > 0 ? "animate-shake" : ""}`}>
+          🔔
+        </span>
         {unread > 0 && (
-          <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] rounded-full flex items-center justify-center text-[10px] font-bold text-white px-1"
-            style={{ background: '#e24b4a' }}>
-            {unread > 9 ? '9+' : unread}
+          <span
+            className="absolute -top-1 -right-1 min-w-[18px] h-[18px] rounded-full flex items-center justify-center text-[10px] font-bold text-white px-1"
+            style={{ background: "#e24b4a" }}
+          >
+            {unread > 9 ? "9+" : unread}
           </span>
         )}
       </button>
 
       {open && (
-        <div className="absolute right-0 top-12 w-80 rounded-2xl shadow-2xl z-50 overflow-hidden animate-fade-up"
-          style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
-          <div className="px-4 py-3 flex items-center justify-between" style={{ borderBottom: '1px solid var(--border)' }}>
-            <h3 className="text-sm font-semibold" style={{ color: 'var(--text)' }}>Bildirimler</h3>
+        <div
+          className="absolute right-0 top-12 w-80 rounded-2xl shadow-2xl z-50 overflow-hidden animate-fade-up"
+          style={{
+            background: "var(--bg-card)",
+            border: "1px solid var(--border)",
+          }}
+        >
+          <div
+            className="px-4 py-3 flex items-center justify-between"
+            style={{ borderBottom: "1px solid var(--border)" }}
+          >
+            <h3
+              className="text-sm font-semibold"
+              style={{ color: "var(--text)" }}
+            >
+              Bildirimler
+            </h3>
             {unread > 0 && (
-              <button onClick={markAllRead} className="text-xs" style={{ color: '#1D9E75' }}>Tümünü oku</button>
+              <button
+                onClick={markAllRead}
+                className="text-xs"
+                style={{ color: "#1D9E75" }}
+              >
+                Tümünü oku
+              </button>
             )}
           </div>
 
           <div className="max-h-96 overflow-y-auto">
             {items.length === 0 ? (
-              <div className="p-8 text-center" style={{ color: 'var(--text-muted)' }}>
+              <div
+                className="p-8 text-center"
+                style={{ color: "var(--text-muted)" }}
+              >
                 <div className="text-3xl mb-2">🔕</div>
                 <p className="text-sm">Henüz bildirim yok</p>
               </div>
-            ) : items.map(n => (
-              <button key={n._id} onClick={() => handleClick(n)}
-                className="w-full text-left flex items-start gap-3 px-4 py-3 transition-colors hover:bg-opacity-50"
-                style={{ background: !n.read ? 'rgba(29,158,117,0.05)' : 'transparent', borderBottom: '1px solid var(--border)' }}>
-                <div className="w-8 h-8 rounded-full flex items-center justify-center text-base shrink-0"
-                  style={{ background: n.type === 'levelUp' ? 'rgba(212,172,42,0.2)' : 'rgba(29,158,117,0.15)' }}>
-                  {getIcon(n)}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-xs leading-snug" style={{ color: 'var(--text)' }}>{getMessage(n)}</p>
-                  {n.postTitle && <p className="text-[10px] mt-0.5 truncate" style={{ color: 'var(--text-muted)' }}>"{n.postTitle}"</p>}
-                  <p className="text-[10px] mt-1" style={{ color: 'var(--text-muted)' }}>{timeAgo(n.createdAt)}</p>
-                </div>
-                {!n.read && <span className="w-2 h-2 rounded-full mt-2 shrink-0" style={{ background: '#1D9E75' }} />}
-              </button>
-            ))}
+            ) : (
+              items.map((n) => (
+                <button
+                  key={n._id}
+                  onClick={() => handleClick(n)}
+                  className="w-full text-left flex items-start gap-3 px-4 py-3 transition-colors hover:bg-opacity-50"
+                  style={{
+                    background: !n.read
+                      ? "rgba(29,158,117,0.05)"
+                      : "transparent",
+                    borderBottom: "1px solid var(--border)",
+                  }}
+                >
+                  <div
+                    className="w-8 h-8 rounded-full flex items-center justify-center text-base shrink-0"
+                    style={{
+                      background:
+                        n.type === "levelUp"
+                          ? "rgba(212,172,42,0.2)"
+                          : "rgba(29,158,117,0.15)",
+                    }}
+                  >
+                    {getIcon(n)}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p
+                      className="text-xs leading-snug"
+                      style={{ color: "var(--text)" }}
+                    >
+                      {getMessage(n)}
+                    </p>
+                    {n.postTitle && (
+                      <p
+                        className="text-[10px] mt-0.5 truncate"
+                        style={{ color: "var(--text-muted)" }}
+                      >
+                        "{n.postTitle}"
+                      </p>
+                    )}
+                    <p
+                      className="text-[10px] mt-1"
+                      style={{ color: "var(--text-muted)" }}
+                    >
+                      {timeAgo(n.createdAt)}
+                    </p>
+                  </div>
+                  {!n.read && (
+                    <span
+                      className="w-2 h-2 rounded-full mt-2 shrink-0"
+                      style={{ background: "#1D9E75" }}
+                    />
+                  )}
+                </button>
+              ))
+            )}
           </div>
 
-          <div className="px-4 py-2 text-center" style={{ borderTop: '1px solid var(--border)' }}>
-            <Link href="/notifications" onClick={() => setOpen(false)} className="text-xs font-medium" style={{ color: '#1D9E75' }}>
+          <div
+            className="px-4 py-2 text-center"
+            style={{ borderTop: "1px solid var(--border)" }}
+          >
+            <Link
+              href="/notifications"
+              onClick={() => setOpen(false)}
+              className="text-xs font-medium"
+              style={{ color: "#1D9E75" }}
+            >
               Tüm bildirimleri gör →
             </Link>
           </div>
         </div>
       )}
     </div>
-  )
+  );
 }
