@@ -2,29 +2,23 @@
 import Link from 'next/link'
 import { timeAgo } from '@/lib/utils'
 import type { Post } from '@/lib/data'
+import UserAvatar from '@/components/avatar/UserAvatar'
 
 export default function FeedItem({ post }: { post: Post }) {
-  const a = post.author
-  const photoUrl = (a as any).photoUrl
+  const a = post.author as any
 
   return (
     <article className="rounded-2xl overflow-hidden card-lift transition-all" style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
-      {/* Yazar bilgisi - üstte */}
+      {/* Yazar */}
       <div className="flex items-center gap-3 px-5 pt-4 pb-3" style={{ borderBottom: '1px solid var(--border)' }}>
         <Link href={`/profile/${a.id}`} className="shrink-0">
-          {photoUrl ? (
-            <img src={photoUrl} alt={a.name} className="w-9 h-9 rounded-full object-cover" style={{ border: `2px solid ${a.avatarColor}55` }} />
-          ) : (
-            <div className="w-9 h-9 rounded-full flex items-center justify-center text-base" style={{ background: `${a.avatarColor}22`, border: `2px solid ${a.avatarColor}55` }}>
-              {a.avatar}
-            </div>
-          )}
+          <UserAvatar user={a} size={40} />
         </Link>
         <div className="flex-1 min-w-0">
           <Link href={`/profile/${a.id}`} className="text-sm font-semibold hover:text-green-500" style={{ color: 'var(--text)' }}>
-            {a.name}
+            @{a.username || a.name}
           </Link>
-          <p className="text-xs" style={{ color: 'var(--text-muted)' }}>@{a.username} · {timeAgo(post.publishedAt)}</p>
+          <p className="text-xs" style={{ color: 'var(--text-muted)' }}>{timeAgo(post.publishedAt)}</p>
         </div>
         <span className="text-xs font-medium px-2 py-0.5 rounded-full" style={{ background: 'rgba(29,158,117,0.15)', color: '#1D9E75' }}>
           {post.category}
@@ -32,7 +26,6 @@ export default function FeedItem({ post }: { post: Post }) {
       </div>
 
       <Link href={`/blog/${post.slug}`}>
-        {/* Kapak */}
         {post.youtubeId ? (
           <div className="relative h-52 sm:h-64">
             <img src={`https://img.youtube.com/vi/${post.youtubeId}/maxresdefault.jpg`}

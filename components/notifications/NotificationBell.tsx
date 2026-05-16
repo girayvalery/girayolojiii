@@ -84,6 +84,7 @@ export default function NotificationBell() {
     if (n.type === 'rocket') return `${n.fromUserName} yazını 🚀 roketledi`
     if (n.type === 'postPublished') return `🎉 Yazın yayında!`
     if (n.type === 'postRejected') return `❌ Yazın reddedildi${(n as any).rejectNote ? ': ' + (n as any).rejectNote : ''}`
+    if (n.type === 'storyReaction') return `${n.fromUserName} hikayene ${n.emoji || '❤️'} tepki verdi`
     return n.commentPreview || 'Yeni bildirim'
   }
 
@@ -99,7 +100,7 @@ export default function NotificationBell() {
     const map: Record<string, string> = {
       reaction: n.emoji || '❤️',
       comment: '💬', follow: '➕', mention: '@', newPost: '📝',
-      rocket: '🚀', postPublished: '🎉', postRejected: '❌',
+      rocket: '🚀', postPublished: '🎉', postRejected: '❌', storyReaction: n.emoji || '❤️',
     }
     return map[n.type] || '🔔'
   }
@@ -109,7 +110,7 @@ export default function NotificationBell() {
       <button onClick={() => setOpen(p => !p)}
         className="relative w-9 h-9 rounded-full flex items-center justify-center transition-all hover:scale-105"
         style={{ background: 'var(--bg-subtle)', color: 'var(--text-muted)' }}>
-        <span className="text-base">🔔</span>
+        <span className={`text-base ${unread > 0 ? 'animate-shake' : ''}`}>🔔</span>
         {unread > 0 && (
           <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] rounded-full flex items-center justify-center text-[10px] font-bold text-white px-1"
             style={{ background: '#e24b4a' }}>

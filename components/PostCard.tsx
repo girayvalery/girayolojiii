@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import type { Post } from '@/lib/data'
-import { formatDate, formatNum } from '@/lib/utils'
+import { timeAgo, formatNum } from '@/lib/utils'
+import UserAvatar from '@/components/avatar/UserAvatar'
 
 type Props = { post: Post; size?: 'sm' | 'md' | 'lg' }
 
@@ -80,9 +81,9 @@ export default function PostCard({ post, size = 'md' }: Props) {
               {post.excerpt}
             </p>
             <div className="flex items-center gap-2 text-xs" style={{ color: 'var(--text-muted)' }}>
-              <span className="w-6 h-6 rounded-full flex items-center justify-center text-base" style={{ background: `${post.author.avatarColor}22` }}>{post.author.avatar}</span>
-              <span className="font-medium" style={{ color: 'var(--text)' }}>{post.author.name}</span>
-              <span>·</span><span>{formatDate(post.publishedAt)}</span>
+              <UserAvatar user={post.author as any} size={24} />
+              <span className="font-medium" style={{ color: 'var(--text)' }}>@{(post.author as any).username || post.author.name}</span>
+              <span>·</span><span>{timeAgo(post.publishedAt)}</span>
               {post.readTime && <><span>·</span><span>{post.readTime} dk</span></>}
             </div>
           </div>
@@ -110,8 +111,8 @@ export default function PostCard({ post, size = 'md' }: Props) {
               {post.title}
             </h3>
             <div className="flex items-center gap-1.5 text-xs" style={{ color: 'var(--text-muted)' }}>
-              <span>{post.author.avatar}</span>
-              <span>{post.author.name}</span>
+              <UserAvatar user={post.author as any} size={18} />
+              <span>@{(post.author as any).username || post.author.name}</span>
               <span className="ml-auto">👁 {formatNum(post.viewCount)}</span>
             </div>
           </div>
@@ -132,8 +133,8 @@ export default function PostCard({ post, size = 'md' }: Props) {
             {post.excerpt}
           </p>
           <div className="flex items-center gap-2 text-xs" style={{ color: 'var(--text-muted)' }}>
-            <span>{post.author.avatar}</span>
-            <span>{post.author.name}</span>
+            <UserAvatar user={post.author as any} size={20} />
+            <span>@{(post.author as any).username || post.author.name}</span>
             {post.readTime && <><span>·</span><span>{post.readTime} dk</span></>}
           </div>
         </div>

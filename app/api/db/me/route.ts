@@ -27,6 +27,7 @@ export async function PATCH(req: Request) {
     if (body.avatar !== undefined) update.avatar = body.avatar
     if (body.avatarColor !== undefined) update.avatarColor = body.avatarColor
     if (body.photoUrl !== undefined) update.photoUrl = body.photoUrl
+    if (body.avatarConfig !== undefined) update.avatarConfig = body.avatarConfig
 
     await db.collection('users').updateOne({ id: userId }, { $set: update })
 

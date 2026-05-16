@@ -7,25 +7,25 @@ import { useBodyLock } from '@/lib/useBodyLock'
 import { useAuthGate } from '@/components/auth/AuthGate'
 import { useToast } from '@/components/ui/Toast'
 import ReactionBurst from '@/components/ui/ReactionBurst'
+import UserAvatar from '@/components/avatar/UserAvatar'
 
 type GroupedStory = { userId: string; user: Story['user']; stories: Story[]; allSeen: boolean }
 
 function StoryRing({ group, onPlay }: { group: GroupedStory; onPlay: () => void }) {
   return (
-    <div className="flex flex-col items-center gap-1.5 shrink-0 group">
+    <div className="flex flex-col items-center gap-1.5 shrink-0">
       <button onClick={onPlay}
         className="p-[2.5px] rounded-full transition-transform hover:scale-105"
         style={{
           background: group.allSeen ? 'linear-gradient(135deg,#444,#333)' : `conic-gradient(${group.user.avatarColor} 0%,#9FE1CB 50%,${group.user.avatarColor} 100%)`,
           boxShadow: group.allSeen ? 'none' : `0 0 12px ${group.user.avatarColor}55`,
         }}>
-        <div className="w-14 h-14 rounded-full flex items-center justify-center text-2xl"
-          style={{ background: 'var(--bg-card)', border: '2px solid var(--bg)' }}>
-          {group.user.avatar}
+        <div className="rounded-full overflow-hidden" style={{ background: 'var(--bg-card)', border: '2px solid var(--bg)' }}>
+          <UserAvatar user={group.user as any} size={56} />
         </div>
       </button>
       <span className="text-[11px] font-medium truncate w-16 text-center" style={{ color: group.allSeen ? 'var(--text-muted)' : 'var(--text)' }}>
-        {group.user.name.split(' ')[0]}
+        {(group.user as any).username ? '@' + (group.user as any).username : group.user.name.split(' ')[0]}
         {group.stories.length > 1 && <sup className="ml-0.5 text-[9px]" style={{ color: '#1D9E75' }}>{group.stories.length}</sup>}
       </span>
     </div>
@@ -44,6 +44,7 @@ function StoryViewer({ groups, startGroupIdx, onClose, onSeen }: {
   const [progress, setProgress] = useState(0)
   const [paused, setPaused] = useState(false)
   const [showViewers, setShowViewers] = useState(false)
+  const [viewers, setViewers] = useState<any[]>([])
   const [burst, setBurst] = useState<string | null>(null)
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
   useBodyLock(true)
@@ -72,6 +73,20 @@ function StoryViewer({ groups, startGroupIdx, onClose, onSeen }: {
   useEffect(() => {
     if (!story) return
     onSeen(story.id)
+    // Görüldü kaydı
+    if (session?.user && !isOwn) {
+      fetch('/api/stories/view', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ storyId: story.id }),
+      }).catch(() => {})
+    }
+    // Sahibi - viewers fetch
+    if (isOwn) {
+      fetch(`/api/stories/view?storyId=${story.id}`, { cache: 'no-store' })
+        .then(r => r.json())
+        .then(d => setViewers(d.viewers || []))
+        .catch(() => setViewers([]))
+    }
     setProgress(0)
     if (intervalRef.current) clearInterval(intervalRef.current)
     if (!paused && !burst) {
@@ -83,7 +98,7 @@ function StoryViewer({ groups, startGroupIdx, onClose, onSeen }: {
       }, 25)
     }
     return () => { if (intervalRef.current) clearInterval(intervalRef.current) }
-  }, [storyIdx, groupIdx, paused, burst, goNext, onSeen, story])
+  }, [storyIdx, groupIdx, paused, burst, goNext, onSeen, story, session, isOwn])
 
   function goToProfile() {
     onClose()
@@ -94,30 +109,23 @@ function StoryViewer({ groups, startGroupIdx, onClose, onSeen }: {
     if (!requireAuth('Tepki vermek')) return
     setPaused(true)
     setBurst(emoji)
-    show('success', `${emoji} tepkin gönderildi`)
+    fetch('/api/stories/react', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ storyId: story.id, emoji, storyOwnerId: group.userId }),
+    }).then(() => show('success', `${emoji} tepkin gönderildi`)).catch(() => {})
   }
 
   if (!group || !story) return null
 
-  const viewers = isOwn ? [
-    { name: 'Ekrem T.', avatar: '🌍', color: '#534AB7', reaction: '🔥' },
-    { name: 'Selin A.', avatar: '🗣️', color: '#D85A30', reaction: null },
-    { name: 'Mert K.', avatar: '🩺', color: '#D4537E', reaction: '❤️' },
-  ] : []
-
   return (
     <>
-      {/* TAM EKRAN — siyah arka plan */}
       <div className="fixed inset-0 z-[100]" style={{ background: '#000' }} onClick={onClose}>
-
-        {/* Sol ok */}
         <button onClick={(e) => { e.stopPropagation(); goPrev() }}
           className="absolute left-4 sm:left-8 top-1/2 -translate-y-1/2 w-12 h-12 rounded-full flex items-center justify-center text-white text-3xl z-30 hover:scale-110 transition-all"
           style={{ background: 'rgba(255,255,255,0.1)', backdropFilter: 'blur(8px)', opacity: groupIdx === 0 && storyIdx === 0 ? 0.3 : 1 }}>
           ‹
         </button>
 
-        {/* TAM EKRAN İÇERİK */}
         <div className="absolute inset-0 flex items-center justify-center p-4 sm:p-12"
           onClick={e => e.stopPropagation()}
           onMouseDown={() => setPaused(true)} onMouseUp={() => setPaused(false)} onMouseLeave={() => setPaused(false)}
@@ -134,12 +142,10 @@ function StoryViewer({ groups, startGroupIdx, onClose, onSeen }: {
             </div>
 
             <button onClick={goToProfile} className="absolute top-7 left-3 z-20 flex items-center gap-2.5 hover:opacity-80">
-              <div className="w-9 h-9 rounded-full flex items-center justify-center text-lg" style={{ background: `${group.user.avatarColor}33` }}>
-                {group.user.avatar}
-              </div>
+              <UserAvatar user={group.user as any} size={36} />
               <div className="text-left">
                 <p className="text-white text-sm font-semibold">{group.user.name}</p>
-                <p className="text-white/50 text-xs">@{group.user.username}</p>
+                <p className="text-white/50 text-xs">@{(group.user as any).username || group.user.name}</p>
               </div>
             </button>
 
@@ -175,7 +181,6 @@ function StoryViewer({ groups, startGroupIdx, onClose, onSeen }: {
           </div>
         </div>
 
-        {/* Sağ ok */}
         <button onClick={(e) => { e.stopPropagation(); goNext() }}
           className="absolute right-4 sm:right-8 top-1/2 -translate-y-1/2 w-12 h-12 rounded-full flex items-center justify-center text-white text-3xl z-30 hover:scale-110 transition-all"
           style={{ background: 'rgba(255,255,255,0.1)', backdropFilter: 'blur(8px)' }}>
@@ -186,18 +191,25 @@ function StoryViewer({ groups, startGroupIdx, onClose, onSeen }: {
           <div className="absolute inset-0 z-50 flex items-end" style={{ background: 'rgba(0,0,0,0.7)' }} onClick={() => setShowViewers(false)}>
             <div className="w-full max-w-md mx-auto rounded-t-3xl p-6 sm:mb-12 sm:rounded-3xl" style={{ background: '#161616', border: '1px solid #2a2a2a' }} onClick={e => e.stopPropagation()}>
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-base font-semibold" style={{ color: '#f5f5f5' }}>👁️ Hikayeyi izleyenler</h3>
+                <h3 className="text-base font-semibold" style={{ color: '#f5f5f5' }}>👁️ Hikayeyi izleyenler · {viewers.length}</h3>
                 <button onClick={() => setShowViewers(false)} style={{ color: '#999' }}>✕</button>
               </div>
               <div className="space-y-2 max-h-80 overflow-y-auto">
-                {viewers.map((v, i) => (
+                {viewers.length === 0 ? (
+                  <p className="text-center py-6 text-sm" style={{ color: '#999' }}>Henüz kimse görmedi.</p>
+                ) : viewers.map((v: any, i: number) => (
                   <div key={i} className="flex items-center gap-3 p-2 rounded-xl" style={{ background: '#0d0d0d' }}>
-                    <div className="w-9 h-9 rounded-full flex items-center justify-center text-base" style={{ background: `${v.color}22` }}>{v.avatar}</div>
-                    <span className="text-sm flex-1" style={{ color: '#f5f5f5' }}>{v.name}</span>
-                    {v.reaction && <span className="text-lg">{v.reaction}</span>}
+                    <UserAvatar user={{
+                      avatar: v.userAvatar, avatarColor: v.userAvatarColor,
+                      avatarConfig: v.userAvatarConfig, photoUrl: v.userPhotoUrl, name: v.userName,
+                    }} size={36} />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm" style={{ color: '#f5f5f5' }}>{v.userName}</p>
+                      <p className="text-xs" style={{ color: '#999' }}>@{v.userUsername}</p>
+                    </div>
+                    {v.reaction && <span className="text-2xl">{v.reaction}</span>}
                   </div>
                 ))}
-                {viewers.length === 0 && <p className="text-center py-6 text-sm" style={{ color: '#999' }}>Henüz kimse görmedi.</p>}
               </div>
             </div>
           </div>
@@ -209,7 +221,21 @@ function StoryViewer({ groups, startGroupIdx, onClose, onSeen }: {
 }
 
 export default function StoriesBar() {
-  const stories = getAllStories()
+  const [stories, setStories] = useState<Story[]>([])
+  const [seenIds, setSeenIds] = useState<Set<string>>(new Set())
+  const [viewIdx, setViewIdx] = useState<number | null>(null)
+
+  useEffect(() => {
+    // MongoDB'den hikayeler
+    fetch('/api/db/stories', { cache: 'no-store' })
+      .then(r => r.json())
+      .then((d: any) => {
+        if (Array.isArray(d) && d.length > 0) setStories(d as Story[])
+        else setStories(getAllStories())
+      })
+      .catch(() => setStories(getAllStories()))
+  }, [])
+
   const grouped: GroupedStory[] = []
   const seenUsers = new Set<string>()
   for (const s of stories) {
@@ -220,10 +246,6 @@ export default function StoriesBar() {
       grouped.push({ userId: s.userId, user: s.user, stories: [s], allSeen: false })
     }
   }
-
-  const [seenIds, setSeenIds] = useState<Set<string>>(new Set())
-  const [viewIdx, setViewIdx] = useState<number | null>(null)
-
   const updatedGroups = grouped.map(g => ({ ...g, allSeen: g.stories.every(s => seenIds.has(s.id)) }))
 
   if (grouped.length === 0) return null

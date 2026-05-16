@@ -1,139 +1,205 @@
 'use client'
 import { useState } from 'react'
-
-// Genişletilmiş emoji setleri
-const FACE_TYPES = ['😀','😎','🤓','🥸','😇','🤗','🤩','🥰','😋','🧐','🤠','🥳','😴','🤖','👽','🤡']
-const HAIR_STYLES = ['👨','👩','🧔','👱','👲','🧕','👨‍🦰','👩‍🦰','👨‍🦱','👩‍🦱','👨‍🦳','👩‍🦳','👨‍🦲','👩‍🦲']
-const PROFESSIONS = ['🧑‍🚀','🧑‍🔬','🧑‍💻','🧑‍🎨','🧑‍🍳','🧑‍🏫','🧑‍🌾','🧑‍🎤','🧑‍✈️','🧑‍⚕️','👩‍🎓','🧑‍🚒','🧑‍🏭','🧑‍🔧','🧑‍💼','🧑‍🎓']
-const FANTASY = ['🧙','🧚','🧛','🧜','🧝','🦸','🦹','🥷','🧞','👻','🤴','👸','🧌','🤺','🧙‍♀️','🧝‍♂️']
-const ANIMALS = ['🦊','🦁','🐯','🐼','🐨','🐸','🐙','🦄','🐢','🦋','🐝','🐬','🐺','🦝','🐧','🦉']
-const SYMBOLS = ['⭐','🌙','☀️','🔥','💎','🌈','🌸','🍀','💫','⚡','🌊','🎯','🌺','🎭','🎪','🌻']
-
-const COLORS = [
-  '#1D9E75', '#534AB7', '#185fa5', '#D4537E', '#D85A30', '#ba7517',
-  '#e24b4a', '#1AAE9F', '#7F77DD', '#639922', '#D85A30', '#D4537E',
-  '#a32d2d', '#0F6E56', '#7D5BA6', '#FF6B35',
-]
-
-const PATTERNS = [
-  { name: 'Düz', value: 'solid' },
-  { name: 'Gradient', value: 'gradient' },
-  { name: 'Yıldızlı', value: 'stars' },
-  { name: 'Çizgili', value: 'stripes' },
-  { name: 'Noktalı', value: 'dots' },
-  { name: 'Dalga', value: 'waves' },
-]
-
-const TABS = [
-  { key: 'professions', label: '🧑 Meslek', items: PROFESSIONS },
-  { key: 'faces', label: '😀 Yüzler', items: FACE_TYPES },
-  { key: 'hair', label: '💇 Saç', items: HAIR_STYLES },
-  { key: 'fantasy', label: '🧙 Fantastik', items: FANTASY },
-  { key: 'animals', label: '🦊 Hayvanlar', items: ANIMALS },
-  { key: 'symbols', label: '⭐ Semboller', items: SYMBOLS },
-]
+import SvgAvatar from '@/components/avatar/SvgAvatar'
+import {
+  AvatarConfig, DEFAULT_AVATAR,
+  SKIN_TONES, HAIR_COLORS, HAIR_STYLES,
+  EYE_STYLES, EYEBROW_STYLES, MOUTH_STYLES,
+  FACIAL_STYLES, ACCESSORY_STYLES, BG_COLORS,
+} from '@/lib/avatar'
 
 type Props = {
-  initialAvatar?: string
-  initialColor?: string
-  onSave: (avatar: string, color: string, pattern: string) => void
+  initial?: AvatarConfig
+  onSave: (cfg: AvatarConfig) => void
+  onCancel?: () => void
 }
 
-export default function AvatarBuilder({ initialAvatar = '🧑‍🚀', initialColor = '#1D9E75', onSave }: Props) {
-  const [avatar, setAvatar] = useState(initialAvatar)
-  const [color, setColor] = useState(initialColor)
-  const [pattern, setPattern] = useState('solid')
-  const [tab, setTab] = useState('professions')
+type Tab = 'skin'|'hair'|'eyes'|'eyebrows'|'mouth'|'facial'|'accessory'|'bg'
 
-  function getBackground() {
-    const c = color
-    switch (pattern) {
-      case 'gradient': return `linear-gradient(135deg, ${c} 0%, ${c}77 100%)`
-      case 'stars': return `radial-gradient(circle at 25% 25%, ${c}88 0%, ${c} 50%), radial-gradient(circle at 75% 75%, ${c}cc 0%, transparent 50%)`
-      case 'stripes': return `repeating-linear-gradient(45deg, ${c}, ${c} 10px, ${c}cc 10px, ${c}cc 20px)`
-      case 'dots': return `radial-gradient(${c}cc 25%, transparent 26%), radial-gradient(${c}cc 25%, transparent 26%) 12px 12px, ${c}`
-      case 'waves': return `repeating-radial-gradient(circle at 50% 0%, ${c}, ${c} 12px, ${c}cc 12px, ${c}cc 24px)`
-      default: return c
-    }
+export default function AvatarBuilder({ initial, onSave, onCancel }: Props) {
+  const [cfg, setCfg] = useState<AvatarConfig>(initial || DEFAULT_AVATAR)
+  const [tab, setTab] = useState<Tab>('skin')
+
+  function update(k: keyof AvatarConfig, v: string) {
+    setCfg(p => ({ ...p, [k]: v }))
   }
 
-  const activeTab = TABS.find(t => t.key === tab)
+  const tabs: { id: Tab; icon: string; label: string }[] = [
+    { id: 'skin', icon: '✋', label: 'Ten' },
+    { id: 'hair', icon: '💇', label: 'Saç' },
+    { id: 'eyes', icon: '👁', label: 'Göz' },
+    { id: 'eyebrows', icon: '〰️', label: 'Kaş' },
+    { id: 'mouth', icon: '👄', label: 'Ağız' },
+    { id: 'facial', icon: '🧔', label: 'Sakal' },
+    { id: 'accessory', icon: '🕶', label: 'Aksesuar' },
+    { id: 'bg', icon: '🎨', label: 'Arka' },
+  ]
 
   return (
     <div className="rounded-2xl p-6" style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
-      <h3 className="text-base font-semibold mb-4" style={{ color: 'var(--text)' }}>🎨 Karakterini Oluştur</h3>
+      <h3 className="text-lg font-semibold mb-4 flex items-center gap-2" style={{ color: 'var(--text)' }}>
+        🎨 Karakter Tasarla
+      </h3>
 
-      <div className="flex justify-center mb-6">
-        <div className="w-32 h-32 rounded-full flex items-center justify-center text-7xl shadow-2xl"
-          style={{ background: getBackground(), border: `4px solid ${color}55`, backgroundSize: pattern === 'dots' ? '24px 24px' : 'auto' }}>
-          {avatar}
+      {/* Büyük önizleme */}
+      <div className="flex flex-col items-center mb-5">
+        <div className="rounded-full overflow-hidden" style={{ background: cfg.bg, padding: '8px' }}>
+          <SvgAvatar config={cfg} size={180} showBg={false} />
         </div>
       </div>
 
-      <div className="flex gap-1 mb-3 p-1 rounded-xl overflow-x-auto" style={{ background: 'var(--bg-subtle)' }}>
-        {TABS.map(t => (
-          <button key={t.key} onClick={() => setTab(t.key)}
-            className="px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap"
+      {/* Sekmeler */}
+      <div className="flex gap-1 overflow-x-auto pb-2 mb-4 scrollbar-none">
+        {tabs.map(t => (
+          <button key={t.id} onClick={() => setTab(t.id)}
+            className="px-3 py-2 rounded-xl text-xs font-medium whitespace-nowrap transition-all"
             style={{
-              background: tab === t.key ? 'var(--bg-card)' : 'transparent',
-              color: tab === t.key ? '#1D9E75' : 'var(--text-muted)',
+              background: tab === t.id ? '#1D9E75' : 'var(--bg-subtle)',
+              color: tab === t.id ? '#fff' : 'var(--text-muted)',
             }}>
-            {t.label}
+            {t.icon} {t.label}
           </button>
         ))}
       </div>
 
-      <div className="grid grid-cols-8 gap-1.5 mb-6">
-        {activeTab?.items.map(emoji => (
-          <button key={emoji} type="button" onClick={() => setAvatar(emoji)}
-            className="aspect-square rounded-lg flex items-center justify-center text-xl"
-            style={{
-              background: avatar === emoji ? `${color}33` : 'var(--bg-subtle)',
-              border: avatar === emoji ? `2px solid ${color}` : '2px solid transparent',
-            }}>
-            {emoji}
+      {/* Sekme içeriği */}
+      <div className="min-h-[140px]">
+        {tab === 'skin' && (
+          <div className="grid grid-cols-6 gap-2">
+            {SKIN_TONES.map(s => (
+              <button key={s.id} onClick={() => update('skin', s.color)}
+                className="aspect-square rounded-full transition-all hover:scale-110"
+                style={{
+                  background: s.color,
+                  border: cfg.skin === s.color ? '3px solid #1D9E75' : '2px solid var(--border)',
+                }} title={s.label} />
+            ))}
+          </div>
+        )}
+
+        {tab === 'hair' && (
+          <>
+            <p className="text-xs font-semibold uppercase tracking-wider mb-2" style={{ color: 'var(--text-muted)' }}>Stil</p>
+            <div className="grid grid-cols-5 gap-2 mb-4">
+              {HAIR_STYLES.map(h => (
+                <button key={h.id} onClick={() => update('hair', h.id)}
+                  className="aspect-square rounded-xl text-2xl flex items-center justify-center transition-all hover:scale-105"
+                  style={{
+                    background: cfg.hair === h.id ? 'rgba(29,158,117,0.2)' : 'var(--bg-subtle)',
+                    border: cfg.hair === h.id ? '2px solid #1D9E75' : '2px solid transparent',
+                  }} title={h.label}>{h.emoji}</button>
+              ))}
+            </div>
+            <p className="text-xs font-semibold uppercase tracking-wider mb-2" style={{ color: 'var(--text-muted)' }}>Renk</p>
+            <div className="grid grid-cols-6 gap-2">
+              {HAIR_COLORS.map(c => (
+                <button key={c.id} onClick={() => update('hairColor', c.color)}
+                  className="aspect-square rounded-full transition-all hover:scale-110"
+                  style={{
+                    background: c.color,
+                    border: cfg.hairColor === c.color ? '3px solid #1D9E75' : '2px solid var(--border)',
+                  }} title={c.label} />
+              ))}
+            </div>
+          </>
+        )}
+
+        {tab === 'eyes' && (
+          <div className="grid grid-cols-3 gap-2">
+            {EYE_STYLES.map(e => (
+              <button key={e.id} onClick={() => update('eyes', e.id)}
+                className="py-3 rounded-xl text-xs font-medium transition-all hover:scale-105"
+                style={{
+                  background: cfg.eyes === e.id ? 'rgba(29,158,117,0.2)' : 'var(--bg-subtle)',
+                  color: cfg.eyes === e.id ? '#1D9E75' : 'var(--text)',
+                  border: cfg.eyes === e.id ? '2px solid #1D9E75' : '2px solid transparent',
+                }}>{e.label}</button>
+            ))}
+          </div>
+        )}
+
+        {tab === 'eyebrows' && (
+          <div className="grid grid-cols-2 gap-2">
+            {EYEBROW_STYLES.map(e => (
+              <button key={e.id} onClick={() => update('eyebrows', e.id)}
+                className="py-3 rounded-xl text-xs font-medium transition-all hover:scale-105"
+                style={{
+                  background: cfg.eyebrows === e.id ? 'rgba(29,158,117,0.2)' : 'var(--bg-subtle)',
+                  color: cfg.eyebrows === e.id ? '#1D9E75' : 'var(--text)',
+                  border: cfg.eyebrows === e.id ? '2px solid #1D9E75' : '2px solid transparent',
+                }}>{e.label}</button>
+            ))}
+          </div>
+        )}
+
+        {tab === 'mouth' && (
+          <div className="grid grid-cols-3 gap-2">
+            {MOUTH_STYLES.map(m => (
+              <button key={m.id} onClick={() => update('mouth', m.id)}
+                className="py-3 rounded-xl text-xs font-medium transition-all hover:scale-105"
+                style={{
+                  background: cfg.mouth === m.id ? 'rgba(29,158,117,0.2)' : 'var(--bg-subtle)',
+                  color: cfg.mouth === m.id ? '#1D9E75' : 'var(--text)',
+                  border: cfg.mouth === m.id ? '2px solid #1D9E75' : '2px solid transparent',
+                }}>{m.label}</button>
+            ))}
+          </div>
+        )}
+
+        {tab === 'facial' && (
+          <div className="grid grid-cols-3 gap-2">
+            {FACIAL_STYLES.map(f => (
+              <button key={f.id} onClick={() => update('facial', f.id)}
+                className="py-3 rounded-xl text-xs font-medium transition-all hover:scale-105"
+                style={{
+                  background: cfg.facial === f.id ? 'rgba(29,158,117,0.2)' : 'var(--bg-subtle)',
+                  color: cfg.facial === f.id ? '#1D9E75' : 'var(--text)',
+                  border: cfg.facial === f.id ? '2px solid #1D9E75' : '2px solid transparent',
+                }}>{f.label}</button>
+            ))}
+          </div>
+        )}
+
+        {tab === 'accessory' && (
+          <div className="grid grid-cols-3 gap-2">
+            {ACCESSORY_STYLES.map(a => (
+              <button key={a.id} onClick={() => update('accessory', a.id)}
+                className="py-3 rounded-xl text-xs font-medium transition-all hover:scale-105"
+                style={{
+                  background: cfg.accessory === a.id ? 'rgba(29,158,117,0.2)' : 'var(--bg-subtle)',
+                  color: cfg.accessory === a.id ? '#1D9E75' : 'var(--text)',
+                  border: cfg.accessory === a.id ? '2px solid #1D9E75' : '2px solid transparent',
+                }}>{a.label}</button>
+            ))}
+          </div>
+        )}
+
+        {tab === 'bg' && (
+          <div className="grid grid-cols-6 gap-2">
+            {BG_COLORS.map(c => (
+              <button key={c} onClick={() => update('bg', c)}
+                className="aspect-square rounded-full transition-all hover:scale-110"
+                style={{
+                  background: c,
+                  border: cfg.bg === c ? '3px solid #fff' : '2px solid var(--border)',
+                  boxShadow: cfg.bg === c ? `0 0 0 2px ${c}` : 'none',
+                }} />
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Aksiyon butonları */}
+      <div className="flex gap-2 mt-5">
+        {onCancel && (
+          <button onClick={onCancel} className="flex-1 py-2.5 rounded-xl text-sm font-semibold border" style={{ borderColor: 'var(--border)', color: 'var(--text-muted)' }}>
+            İptal
           </button>
-        ))}
+        )}
+        <button onClick={() => onSave(cfg)} className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-white" style={{ background: '#1D9E75' }}>
+          ✓ Kaydet
+        </button>
       </div>
-
-      <div className="mb-4">
-        <p className="text-xs font-semibold uppercase tracking-wider mb-2" style={{ color: 'var(--text-muted)' }}>Renk</p>
-        <div className="grid grid-cols-8 gap-1.5">
-          {COLORS.map(c => (
-            <button key={c} type="button" onClick={() => setColor(c)}
-              className="aspect-square rounded-full"
-              style={{
-                background: c,
-                border: color === c ? '3px solid #f5f5f5' : '3px solid transparent',
-                boxShadow: color === c ? `0 0 12px ${c}` : 'none',
-              }}
-            />
-          ))}
-        </div>
-      </div>
-
-      <div className="mb-6">
-        <p className="text-xs font-semibold uppercase tracking-wider mb-2" style={{ color: 'var(--text-muted)' }}>Arka Plan Stili</p>
-        <div className="grid grid-cols-3 gap-2">
-          {PATTERNS.map(p => (
-            <button key={p.value} type="button" onClick={() => setPattern(p.value)}
-              className="py-2 rounded-xl text-xs font-medium"
-              style={{
-                background: pattern === p.value ? 'rgba(29,158,117,0.15)' : 'var(--bg-subtle)',
-                color: pattern === p.value ? '#1D9E75' : 'var(--text-muted)',
-                border: pattern === p.value ? '2px solid #1D9E75' : '2px solid transparent',
-              }}>
-              {p.name}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      <button type="button" onClick={() => onSave(avatar, color, pattern)}
-        className="w-full py-3 rounded-xl text-sm font-semibold text-white"
-        style={{ background: '#1D9E75' }}>
-        ✨ Karakteri Kaydet
-      </button>
     </div>
   )
 }

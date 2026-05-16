@@ -1,4 +1,5 @@
 'use client'
+import UserAvatar from '@/components/avatar/UserAvatar'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useSession, signOut } from 'next-auth/react'
@@ -12,6 +13,7 @@ const SearchModal = dynamic(() => import('./search/SearchModal'), { ssr: false }
 const nav = [
   { href: '/', label: 'Ana Sayfa' },
   { href: '/blog', label: 'Bloglar' },
+  { href: '/reels', label: 'Kısa Videolar' },
   { href: '/topluluk', label: 'Topluluk' },
   { href: '/hakkinda', label: 'Hakkında' },
 ]
@@ -93,14 +95,7 @@ export default function Header() {
                 <button onClick={() => setUserOpen(p => !p)}
                   className="flex items-center gap-2 px-2 py-1.5 rounded-full transition-all hover:scale-[1.02]"
                   style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border)' }}>
-                  {user?.photoUrl ? (
-                    <img src={user.photoUrl} alt={user.name} className="w-7 h-7 rounded-full object-cover" style={{ border: '2px solid #1D9E75' }} />
-                  ) : (
-                    <span className="w-7 h-7 rounded-full flex items-center justify-center text-base"
-                      style={{ background: `${user?.avatarColor || '#1D9E75'}22`, border: '2px solid #1D9E75' }}>
-                      {user?.avatar || user?.name?.[0]?.toUpperCase() || '?'}
-                    </span>
-                  )}
+                  <UserAvatar user={user as any} size={28} />
                   <span className="text-sm hidden sm:block" style={{ color: 'var(--text)' }}>
                     {user?.username ? `@${user.username}` : user?.name?.split(' ')[0]}
                   </span>
@@ -113,14 +108,7 @@ export default function Header() {
                     <Link href={`/profile/${userId}`} onClick={() => setUserOpen(false)}
                       className="flex items-center gap-3 px-4 py-3 cursor-pointer"
                       style={{ borderBottom: '1px solid var(--border)' }}>
-                      {user?.photoUrl ? (
-                        <img src={user.photoUrl} alt={user.name} className="w-10 h-10 rounded-full object-cover" style={{ border: '2px solid #1D9E75' }} />
-                      ) : (
-                        <div className="w-10 h-10 rounded-full flex items-center justify-center text-xl"
-                          style={{ background: `${user?.avatarColor || '#1D9E75'}22`, border: '2px solid #1D9E75' }}>
-                          {user?.avatar || '👤'}
-                        </div>
-                      )}
+                      <UserAvatar user={user as any} size={40} />
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-semibold truncate" style={{ color: 'var(--text)' }}>{user?.name}</p>
                         <p className="text-xs truncate" style={{ color: 'var(--text-muted)' }}>@{user?.username}</p>

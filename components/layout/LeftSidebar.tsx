@@ -7,6 +7,7 @@ import { CATEGORIES } from '@/lib/data'
 const NAV = [
   { href: '/', label: 'Ana Sayfa', icon: '🏠' },
   { href: '/blog', label: 'Bloglar', icon: '📚' },
+  { href: '/reels', label: 'Kısa Videolar', icon: '⚡' },
   { href: '/topluluk', label: 'Topluluk', icon: '👥' },
   { href: '/hakkinda', label: 'Hakkında', icon: 'ℹ️' },
 ]

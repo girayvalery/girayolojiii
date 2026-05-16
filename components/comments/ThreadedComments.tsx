@@ -5,13 +5,14 @@ import { useSession } from 'next-auth/react'
 import { timeAgo } from '@/lib/utils'
 import { useAuthGate } from '@/components/auth/AuthGate'
 import { useToast } from '@/components/ui/Toast'
+import UserAvatar from '@/components/avatar/UserAvatar'
 
 type Comment = {
   id: string
   postId: string
   parentId: string | null
   content: string
-  author: { id: string; name: string; username?: string; avatar: string; avatarColor: string }
+  author: { id: string; name: string; username?: string; avatar?: string; avatarColor?: string; avatarConfig?: any; photoUrl?: string }
   likes: number
   likedBy?: string[]
   createdAt: string
@@ -55,13 +56,11 @@ function CommentNode({ comment, depth = 0, currentUserId, onReply, onLike, onDel
     <div className={`${indent > 0 ? 'ml-4 pl-3' : ''}`} style={{ borderLeft: indent > 0 ? '2px solid #33333355' : 'none' }}>
       <div className="py-3">
         <div className="flex items-center gap-2 mb-2">
-          <Link href={`/profile/${comment.author.id}`}
-            className="w-7 h-7 rounded-full flex items-center justify-center text-sm shrink-0 hover:scale-110 transition-transform"
-            style={{ background: `${comment.author.avatarColor}22` }}>
-            {comment.author.avatar}
+          <Link href={`/profile/${comment.author.id}`} className="shrink-0 hover:scale-110 transition-transform">
+            <UserAvatar user={comment.author as any} size={28} />
           </Link>
           <Link href={`/profile/${comment.author.id}`} className="text-xs font-semibold hover:text-green-500" style={{ color: 'var(--text)' }}>
-            {comment.author.name}
+            @{comment.author.username || comment.author.name}
           </Link>
           <span className="text-xs" style={{ color: 'var(--text-muted)' }}>{timeAgo(comment.createdAt)}</span>
           <button onClick={() => setCollapsed(p => !p)} className="text-xs ml-1" style={{ color: 'var(--text-muted)' }} title="Gizle/Aç">
@@ -87,7 +86,7 @@ function CommentNode({ comment, depth = 0, currentUserId, onReply, onLike, onDel
             {replying && (
               <div className="mt-3 pl-9">
                 <textarea rows={3} value={replyText} onChange={e => setReplyText(e.target.value)}
-                  placeholder={`@${comment.author.name} yanıtla...`}
+                  placeholder={`@${comment.author.username || comment.author.name} yanıtla...`}
                   className="auth-input resize-none mb-2 text-sm" autoFocus />
                 <div className="flex gap-2">
                   <button onClick={submitReply} disabled={submitting} className="px-4 py-1.5 rounded-xl text-xs font-semibold text-white" style={{ background: '#1D9E75' }}>
@@ -200,6 +199,7 @@ export default function ThreadedComments({ postId }: { postId: string }) {
           <div className="text-center py-12" style={{ color: 'var(--text-muted)' }}>Yorumlar yükleniyor...</div>
         ) : comments.length === 0 ? (
           <div className="text-center py-12" style={{ color: 'var(--text-muted)' }}>
+            <div className="text-5xl mb-3">💭</div>
             <p className="text-sm">Henüz yorum yok. İlk yorumu sen yap!</p>
           </div>
         ) : comments.map(c => <CommentNode key={c.id} comment={c} depth={0} currentUserId={userId} onReply={submit} onLike={likeComment} onDelete={deleteComment} />)}
