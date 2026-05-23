@@ -4,6 +4,7 @@ import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import { useTheme } from '@/components/Providers'
 import PhotoUpload from '@/components/upload/PhotoUpload'
+import NotificationSoundSelector from '@/components/notifications/NotificationSoundSelector'
 
 const AVATAR_OPTIONS = ['🧑‍🚀','🧑‍🔬','🧑‍💻','🧑‍🎨','🌍','🗣️','🩺','🔭','⚙️','🧠','🎯','🌱']
 
@@ -216,15 +217,20 @@ export default function AyarlarPage() {
           {tab === 'notifications' && (
             <>
               <h1 className="text-2xl font-semibold mb-1" style={{ color: 'var(--text)' }}>🔔 Bildirimler</h1>
-              <p className="text-sm mb-6" style={{ color: 'var(--text-muted)' }}>Hangi bildirimleri almak istersin?</p>
+              <p className="text-sm mb-6" style={{ color: 'var(--text-muted)' }}>Bildirim sesi ve tercihler</p>
+
+              <div className="rounded-2xl p-6 mb-4" style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
+                <h3 className="text-sm font-semibold mb-3" style={{ color: 'var(--text)' }}>🔊 Bildirim Sesi</h3>
+                <NotificationSoundSelector />
+              </div>
+
               <div className="rounded-2xl p-6 space-y-3" style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
+                <h3 className="text-sm font-semibold mb-3" style={{ color: 'var(--text)' }}>📨 Tercih Ayarları</h3>
                 {[
                   { label: 'Beğeniler', icon: '❤️' },
                   { label: 'Yorumlar', icon: '💬' },
                   { label: 'Yeni takipçiler', icon: '👥' },
                   { label: 'Bahsetmeler (@)', icon: '@' },
-                  { label: 'Haftalık bülten', icon: '📧' },
-                  { label: 'E-posta bildirimleri', icon: '✉️' },
                 ].map((n, i) => (
                   <div key={i} className="flex items-center justify-between p-3 rounded-xl" style={{ background: 'var(--bg-subtle)' }}>
                     <span className="text-sm flex items-center gap-2" style={{ color: 'var(--text)' }}><span>{n.icon}</span>{n.label}</span>

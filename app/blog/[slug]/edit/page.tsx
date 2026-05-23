@@ -11,11 +11,12 @@ const COVER_EMOJIS = ['📝','🔬','🧠','🌌','⚛️','🧬','💡','🎨',
 
 export default function EditPostPage({ params }: { params: { slug: string } }) {
   const router = useRouter()
-  const { data: session } = useSession()
+  const { data: session, status } = useSession()
   const { show } = useToast()
   const user = session?.user as any
   const [loading, setLoading] = useState(true)
   const [post, setPost] = useState<any>(null)
+  const [errorMsg, setErrorMsg] = useState('')
   const [title, setTitle] = useState('')
   const [content, setContent] = useState('')
   const [excerpt, setExcerpt] = useState('')
@@ -26,22 +27,28 @@ export default function EditPostPage({ params }: { params: { slug: string } }) {
   const [submitting, setSubmitting] = useState(false)
 
   useEffect(() => {
+    if (status === 'loading') return
+    if (status === 'unauthenticated') {
+      router.replace('/auth/login')
+      return
+    }
     async function loadPost() {
       try {
         const allPosts = await fetch('/api/db/posts', { cache: 'no-store' }).then(r => r.json())
-        const found = Array.isArray(allPosts) ? allPosts.find((p: any) => p.slug === params.slug) : null
+        if (!Array.isArray(allPosts)) {
+          setErrorMsg('Yazılar yüklenemedi')
+          setLoading(false)
+          return
+        }
+        const found = allPosts.find((p: any) => p.slug === params.slug)
         if (!found) {
-          show('error', 'Yazı bulunamadı')
-          router.replace('/')
+          setErrorMsg('Yazı bulunamadı')
+          setLoading(false)
           return
         }
-        if (!user) {
-          router.replace('/auth/login')
-          return
-        }
-        if (found.author?.id !== user.id && user.role !== 'ADMIN') {
-          show('error', 'Bu yazıyı düzenleme yetkin yok')
-          router.replace(`/blog/${params.slug}`)
+        if (found.author?.id !== user?.id && user?.role !== 'ADMIN') {
+          setErrorMsg('Bu yazıyı düzenleme yetkin yok')
+          setLoading(false)
           return
         }
         setPost(found)
@@ -52,13 +59,30 @@ export default function EditPostPage({ params }: { params: { slug: string } }) {
         setCoverEmoji(found.coverEmoji || '📝')
         setCoverImage(found.coverImage || '')
         setYoutubeId(found.youtubeId || '')
-      } catch (e) { show('error', 'Yükleme hatası') }
+      } catch (e: any) {
+        setErrorMsg('Yükleme hatası: ' + (e?.message || ''))
+      }
       setLoading(false)
     }
-    if (user !== undefined) loadPost()
-  }, [user, params.slug, router, show])
+    if (user) loadPost()
+  }, [user, status, params.slug, router])
 
-  if (loading || !post) return <div className="min-h-[60vh] flex items-center justify-center"><div className="w-8 h-8 border-2 border-green-500 border-t-transparent rounded-full animate-spin" /></div>
+  if (loading) return (
+    <div className="min-h-[60vh] flex items-center justify-center">
+      <div className="w-8 h-8 border-2 border-green-500 border-t-transparent rounded-full animate-spin" />
+    </div>
+  )
+
+  if (errorMsg) return (
+    <div className="max-w-2xl mx-auto px-4 py-16 text-center">
+      <div className="text-6xl mb-4">😕</div>
+      <h2 className="text-xl font-semibold mb-2" style={{ color: 'var(--text)' }}>{errorMsg}</h2>
+      <p className="text-sm mb-6" style={{ color: 'var(--text-muted)' }}>"{params.slug}"</p>
+      <Link href="/" className="inline-block px-6 py-2.5 rounded-xl text-sm font-semibold text-white" style={{ background: '#1D9E75' }}>← Ana Sayfa</Link>
+    </div>
+  )
+
+  if (!post) return null
 
   async function handleSave(e: React.FormEvent) {
     e.preventDefault()

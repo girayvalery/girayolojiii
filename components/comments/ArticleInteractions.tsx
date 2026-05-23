@@ -4,6 +4,7 @@ import { REACTIONS } from '@/lib/data'
 import { useAuthGate } from '@/components/auth/AuthGate'
 import { useToast } from '@/components/ui/Toast'
 import ReactionBurst from '@/components/ui/ReactionBurst'
+import RocketLaunch from '@/components/ui/RocketLaunch'
 
 type Props = { postId: string; initialLikes?: number; postTitle?: string; postSlug?: string; coverEmoji?: string }
 
@@ -18,6 +19,7 @@ export default function ArticleInteractions({ postId, initialLikes = 0, postTitl
   const [burst, setBurst] = useState<string | null>(null)
   const [rocketed, setRocketed] = useState(false)
   const [rocketCount, setRocketCount] = useState(0)
+  const [rocketLaunching, setRocketLaunching] = useState(false)
 
   useEffect(() => {
     fetch(`/api/reactions?postId=${postId}`, { cache: 'no-store' })
@@ -32,6 +34,11 @@ export default function ArticleInteractions({ postId, initialLikes = 0, postTitl
       .then(r => r.json())
       .then(d => { setRocketed(!!d.rocketed); setRocketCount(d.count || 0) })
       .catch(() => {})
+    // Yazıyı okuma kaydı (görüntülenme + aktivite için)
+    fetch('/api/reads', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ postId })
+    }).catch(() => {})
   }, [postId])
 
   async function pickReaction(emoji: string) {
@@ -63,7 +70,7 @@ export default function ArticleInteractions({ postId, initialLikes = 0, postTitl
         setRocketed(!!d.rocketed)
         setRocketCount(d.count || 0)
         if (d.rocketed) {
-          setBurst('🚀')
+          setRocketLaunching(true)
           show('success', '🚀 Roketlendi!')
         } else {
           show('info', 'Roket kaldırıldı')
@@ -180,6 +187,7 @@ export default function ArticleInteractions({ postId, initialLikes = 0, postTitl
         </button>
       </div>
       {burst && <ReactionBurst emoji={burst} onDone={() => setBurst(null)} />}
+      {rocketLaunching && <RocketLaunch onDone={() => setRocketLaunching(false)} />}
     </>
   )
 }

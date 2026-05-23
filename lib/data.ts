@@ -65,6 +65,8 @@ export type Post = {
   publishedAt: string
   coverImage?: string
   youtubeId?: string
+  relatedReelId?: string | null
+  rocketCount?: number
   author: Pick<User, 'id' | 'name' | 'username' | 'avatar' | 'avatarColor'>
 }
 

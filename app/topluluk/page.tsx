@@ -1,12 +1,27 @@
 'use client'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import Link from 'next/link'
 import { useToast } from '@/components/ui/Toast'
+import UserAvatar from '@/components/avatar/UserAvatar'
 
 export default function ToplulukPage() {
   const { show } = useToast()
-  const [tab, setTab] = useState<'feedback'|'guidelines'|'community'>('feedback')
+  const [tab, setTab] = useState<'members'|'feedback'|'guidelines'>('members')
   const [form, setForm] = useState({ type: 'oneri', subject: '', message: '', email: '' })
   const [submitting, setSubmitting] = useState(false)
+  const [users, setUsers] = useState<any[]>([])
+  const [posts, setPosts] = useState<any[]>([])
+  const [search, setSearch] = useState('')
+
+  useEffect(() => {
+    Promise.all([
+      fetch('/api/db/users', { cache: 'no-store' }).then(r => r.json()).catch(() => []),
+      fetch('/api/db/posts', { cache: 'no-store' }).then(r => r.json()).catch(() => []),
+    ]).then(([u, p]) => {
+      if (Array.isArray(u)) setUsers(u)
+      if (Array.isArray(p)) setPosts(p)
+    })
+  }, [])
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -19,114 +34,113 @@ export default function ToplulukPage() {
       if (res.ok) {
         show('success', 'Geri bildirimin alındı, teşekkürler!')
         setForm({ type: 'oneri', subject: '', message: '', email: '' })
-      } else show('error', 'Gönderilemedi, tekrar dene')
+      } else show('error', 'Gönderilemedi')
     } catch { show('error', 'Bağlantı hatası') }
     setSubmitting(false)
   }
 
+  // Kullanıcılar - post sayısı ile zenginleştir
+  const postCount: Record<string, number> = {}
+  posts.forEach((p: any) => { if (p.author?.id) postCount[p.author.id] = (postCount[p.author.id] || 0) + 1 })
+  const enriched = users.map(u => ({ ...u, postCount: postCount[u.id] || 0 }))
+  const filtered = search.trim()
+    ? enriched.filter(u =>
+        (u.name || '').toLowerCase().includes(search.toLowerCase()) ||
+        (u.username || '').toLowerCase().includes(search.toLowerCase()))
+    : enriched
+  const sorted = filtered.sort((a, b) => b.postCount - a.postCount)
+
   return (
-    <div className="max-w-4xl mx-auto px-4 sm:px-6 py-8">
-      <div className="text-center mb-10">
-        <h1 className="text-3xl font-semibold mb-3" style={{ color: 'var(--text)' }}>👥 Topluluk</h1>
-        <p className="text-sm" style={{ color: 'var(--text-muted)' }}>Birlikte daha iyi olalım</p>
+    <div className="max-w-5xl mx-auto px-4 sm:px-6 py-8">
+      <div className="text-center mb-8">
+        <h1 className="text-3xl font-semibold mb-2" style={{ color: 'var(--text)' }}>👥 Topluluk</h1>
+        <p className="text-sm" style={{ color: 'var(--text-muted)' }}>Üyeler, kurallar ve geri bildirimler</p>
       </div>
 
-      <div className="flex justify-center gap-2 mb-8 flex-wrap">
-        {([
-          { key: 'feedback' as const, icon: '💌', label: 'İstek & Şikayet' },
-          { key: 'guidelines' as const, icon: '📜', label: 'Kurallar' },
-          { key: 'community' as const, icon: '🌐', label: 'Topluluk' },
-        ]).map(t => (
+      <div className="flex gap-2 mb-6 overflow-x-auto pb-2">
+        {[
+          { key: 'members' as const, icon: '👥', label: `Üyeler (${users.length})` },
+          { key: 'feedback' as const, icon: '💌', label: 'Geri Bildirim' },
+          { key: 'guidelines' as const, icon: '📋', label: 'Topluluk Kuralları' },
+        ].map(t => (
           <button key={t.key} onClick={() => setTab(t.key)}
-            className="px-5 py-2 rounded-full text-sm font-medium"
+            className="px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap"
             style={{
-              background: tab === t.key ? '#1D9E75' : 'var(--bg-card)',
+              background: tab === t.key ? '#1D9E75' : 'var(--bg-subtle)',
               color: tab === t.key ? '#fff' : 'var(--text-muted)',
-              border: '1px solid var(--border)',
-            }}>
-            {t.icon} {t.label}
-          </button>
+            }}>{t.icon} {t.label}</button>
         ))}
       </div>
 
-      {tab === 'feedback' && (
-        <form onSubmit={handleSubmit} className="rounded-2xl p-6 space-y-4 max-w-2xl mx-auto" style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
-          <div>
-            <label className="block text-xs font-semibold uppercase tracking-wider mb-2" style={{ color: 'var(--text-muted)' }}>Tür</label>
-            <div className="grid grid-cols-3 gap-2">
-              {([
-                { key: 'oneri', icon: '💡', label: 'Öneri' },
-                { key: 'sikayet', icon: '⚠️', label: 'Şikayet' },
-                { key: 'hata', icon: '🐛', label: 'Hata' },
-              ]).map(t => (
-                <button key={t.key} type="button" onClick={() => setForm({...form, type: t.key})}
-                  className="py-3 rounded-xl text-sm font-medium"
-                  style={{
-                    background: form.type === t.key ? 'rgba(29,158,117,0.15)' : 'var(--bg-subtle)',
-                    color: form.type === t.key ? '#1D9E75' : 'var(--text-muted)',
-                    border: form.type === t.key ? '2px solid #1D9E75' : '2px solid transparent',
-                  }}>
-                  <div className="text-2xl mb-1">{t.icon}</div>
-                  {t.label}
-                </button>
+      {tab === 'members' && (
+        <>
+          <input type="text" value={search} onChange={e => setSearch(e.target.value)}
+            placeholder="🔍 Üye ara..."
+            className="auth-input mb-6 max-w-md" />
+
+          {sorted.length === 0 ? (
+            <p className="text-center py-10" style={{ color: 'var(--text-muted)' }}>Üye bulunamadı</p>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              {sorted.map(u => (
+                <Link key={u.id} href={`/profile/${u.id}`}
+                  className="flex items-center gap-3 p-4 rounded-2xl hover:scale-[1.02] transition-all"
+                  style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
+                  <UserAvatar user={u} size={48} />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold truncate" style={{ color: 'var(--text)' }}>{u.name}</p>
+                    <p className="text-xs truncate" style={{ color: 'var(--text-muted)' }}>@{u.username}</p>
+                    <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>📝 {u.postCount} yazı</p>
+                  </div>
+                  {u.role === 'ADMIN' && <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold shrink-0" style={{ background: '#1D9E75', color: '#fff' }}>Admin</span>}
+                </Link>
               ))}
             </div>
-          </div>
-
-          <div>
-            <label className="block text-xs font-semibold uppercase tracking-wider mb-1.5" style={{ color: 'var(--text-muted)' }}>Konu *</label>
-            <input type="text" value={form.subject} onChange={e => setForm({...form, subject: e.target.value})} required maxLength={100}
-              placeholder="Kısa başlık" className="auth-input" />
-          </div>
-
-          <div>
-            <label className="block text-xs font-semibold uppercase tracking-wider mb-1.5" style={{ color: 'var(--text-muted)' }}>Mesaj *</label>
-            <textarea rows={6} value={form.message} onChange={e => setForm({...form, message: e.target.value})} required minLength={10}
-              placeholder="Detaylarını yaz..." className="auth-input resize-none" style={{ fontFamily: 'var(--font-body)' }} />
-          </div>
-
-          <div>
-            <label className="block text-xs font-semibold uppercase tracking-wider mb-1.5" style={{ color: 'var(--text-muted)' }}>E-posta (opsiyonel)</label>
-            <input type="email" value={form.email} onChange={e => setForm({...form, email: e.target.value})}
-              placeholder="Cevap istiyorsan e-posta bırak" className="auth-input" />
-          </div>
-
-          <button type="submit" disabled={submitting} className="w-full py-3 rounded-xl text-sm font-semibold text-white" style={{ background: '#1D9E75' }}>
-            {submitting ? 'Gönderiliyor...' : 'Gönder'}
-          </button>
-        </form>
+          )}
+        </>
       )}
 
-      {tab === 'guidelines' && (
-        <div className="rounded-2xl p-8 max-w-2xl mx-auto" style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
-          <h2 className="text-xl font-semibold mb-4" style={{ color: 'var(--text)' }}>📜 Topluluk Kuralları</h2>
-          <ul className="space-y-3 text-sm" style={{ color: 'var(--text-muted)' }}>
-            <li>✅ Saygılı ol — herkes farklı bakış açılarına sahip</li>
-            <li>✅ Bilimsel kaynaklar göster — iddialarını destekle</li>
-            <li>✅ Yapıcı ol — eleştiri eleştiri için olmasın</li>
-            <li>❌ Hakaret, ayrımcılık, nefret söylemi yasak</li>
-            <li>❌ Spam ve reklam yasak</li>
-            <li>❌ Telif ihlali yasak — kaynaklara saygı</li>
-          </ul>
+      {tab === 'feedback' && (
+        <div className="rounded-2xl p-6" style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
+          <h2 className="text-lg font-semibold mb-4" style={{ color: 'var(--text)' }}>💌 Geri Bildirim Gönder</h2>
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div>
+              <label className="block text-xs font-semibold uppercase tracking-wider mb-1.5" style={{ color: 'var(--text-muted)' }}>Tür</label>
+              <select value={form.type} onChange={e => setForm({...form, type: e.target.value})} className="auth-input">
+                <option value="oneri">💡 Öneri</option>
+                <option value="hata">🐛 Hata bildirimi</option>
+                <option value="sikayet">⚠️ Şikayet</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-semibold uppercase tracking-wider mb-1.5" style={{ color: 'var(--text-muted)' }}>Konu</label>
+              <input type="text" value={form.subject} onChange={e => setForm({...form, subject: e.target.value})} required className="auth-input" />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold uppercase tracking-wider mb-1.5" style={{ color: 'var(--text-muted)' }}>Mesajın</label>
+              <textarea rows={5} value={form.message} onChange={e => setForm({...form, message: e.target.value})} required className="auth-input resize-none" />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold uppercase tracking-wider mb-1.5" style={{ color: 'var(--text-muted)' }}>E-posta (cevap için)</label>
+              <input type="email" value={form.email} onChange={e => setForm({...form, email: e.target.value})} className="auth-input" />
+            </div>
+            <button type="submit" disabled={submitting} className="w-full py-3 rounded-xl text-sm font-semibold text-white" style={{ background: '#1D9E75' }}>
+              {submitting ? 'Gönderiliyor...' : 'Gönder'}
+            </button>
+          </form>
         </div>
       )}
 
-      {tab === 'community' && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-2xl mx-auto">
-          {[
-            { icon: '📺', title: 'YouTube', desc: '@Girayoloji', link: 'https://youtube.com/@Girayoloji' },
-            { icon: '💌', title: 'E-posta', desc: 'iletisim@girayoloji.com', link: 'mailto:iletisim@girayoloji.com' },
-            { icon: '📱', title: 'Instagram', desc: '@girayoloji', link: '#' },
-            { icon: '🐦', title: 'Twitter', desc: '@girayoloji', link: '#' },
-          ].map(c => (
-            <a key={c.title} href={c.link} target="_blank" rel="noopener noreferrer"
-              className="rounded-2xl p-5 hover:scale-[1.02] transition-all"
-              style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
-              <div className="text-3xl mb-2">{c.icon}</div>
-              <div className="font-semibold" style={{ color: 'var(--text)' }}>{c.title}</div>
-              <div className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>{c.desc}</div>
-            </a>
-          ))}
+      {tab === 'guidelines' && (
+        <div className="rounded-2xl p-8 space-y-4" style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
+          <h2 className="text-lg font-semibold" style={{ color: 'var(--text)' }}>📋 Topluluk Kuralları</h2>
+          <ul className="space-y-3 text-sm" style={{ color: 'var(--text-muted)' }}>
+            <li>✓ <strong style={{ color: 'var(--text)' }}>Saygılı ol:</strong> Yapıcı eleştiri her zaman hoş karşılanır, hakaret değil.</li>
+            <li>✓ <strong style={{ color: 'var(--text)' }}>Telif hakkına saygı:</strong> Başkasının içeriğini kaynak göstermeden paylaşma.</li>
+            <li>✓ <strong style={{ color: 'var(--text)' }}>Doğru bilgi:</strong> Bilim ve gerçekleri öne çıkar, manipülasyon değil.</li>
+            <li>✓ <strong style={{ color: 'var(--text)' }}>Topluluk için:</strong> İçeriğin başkalarına değer katsın.</li>
+            <li>✓ <strong style={{ color: 'var(--text)' }}>Spam yapma:</strong> Tekrarlayan içerik veya reklam paylaşımı yasak.</li>
+          </ul>
         </div>
       )}
     </div>

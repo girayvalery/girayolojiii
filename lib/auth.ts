@@ -28,7 +28,7 @@ export const authOptions: NextAuthOptions = {
             avatar: user.avatar,
             avatarColor: user.avatarColor,
             avatarConfig: user.avatarConfig || null,
-            photoUrl: user.photoUrl,
+            photoUrl: user.photoUrl || '',
             bio: user.bio || '',
           } as any
         } catch {
@@ -38,7 +38,8 @@ export const authOptions: NextAuthOptions = {
     }),
   ],
   callbacks: {
-    async jwt({ token, user, trigger, session }) {
+    async jwt({ token, user, trigger }) {
+      // İlk login - user objesi var
       if (user) {
         const u = user as any
         token.id = u.id
@@ -49,20 +50,22 @@ export const authOptions: NextAuthOptions = {
         token.avatarConfig = u.avatarConfig
         token.photoUrl = u.photoUrl
         token.bio = u.bio
+        return token
       }
-      // Her seferinde MongoDB'den güncel verileri al (session refresh çağrılırsa)
-      if (trigger === 'update' || (token.id && !token.avatarConfig)) {
+
+      // SADECE update trigger'da MongoDB'den çek (yoksa her sayfa yavaşlar)
+      if (trigger === 'update' && token.id) {
         try {
           const db = await getDb()
-          const dbUser = await db.collection('users').findOne({ id: token.id })
+          const dbUser = await db.collection('users').findOne({ id: token.id as string })
           if (dbUser) {
             token.name = dbUser.name
             token.username = dbUser.username
             token.avatar = dbUser.avatar
             token.avatarColor = dbUser.avatarColor
             token.avatarConfig = dbUser.avatarConfig
-            token.photoUrl = dbUser.photoUrl
-            token.bio = dbUser.bio
+            token.photoUrl = dbUser.photoUrl || ''
+            token.bio = dbUser.bio || ''
           }
         } catch {}
       }

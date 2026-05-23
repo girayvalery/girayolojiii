@@ -2,14 +2,24 @@
 import { useState, useRef, useCallback, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useSession } from 'next-auth/react'
-import { getAllStories, REACTIONS, type Story } from '@/lib/data'
+import { REACTIONS } from '@/lib/data'
+import { timeAgo } from '@/lib/utils'
 import { useBodyLock } from '@/lib/useBodyLock'
 import { useAuthGate } from '@/components/auth/AuthGate'
 import { useToast } from '@/components/ui/Toast'
 import ReactionBurst from '@/components/ui/ReactionBurst'
 import UserAvatar from '@/components/avatar/UserAvatar'
 
-type GroupedStory = { userId: string; user: Story['user']; stories: Story[]; allSeen: boolean }
+type Story = {
+  id: string
+  userId: string
+  user: any
+  mediaUrl: string | null
+  mediaType: 'image' | 'video'
+  createdAt: string
+}
+
+type GroupedStory = { userId: string; user: any; stories: Story[]; allSeen: boolean }
 
 function StoryRing({ group, onPlay }: { group: GroupedStory; onPlay: () => void }) {
   return (
@@ -17,15 +27,15 @@ function StoryRing({ group, onPlay }: { group: GroupedStory; onPlay: () => void 
       <button onClick={onPlay}
         className="p-[2.5px] rounded-full transition-transform hover:scale-105"
         style={{
-          background: group.allSeen ? 'linear-gradient(135deg,#444,#333)' : `conic-gradient(${group.user.avatarColor} 0%,#9FE1CB 50%,${group.user.avatarColor} 100%)`,
-          boxShadow: group.allSeen ? 'none' : `0 0 12px ${group.user.avatarColor}55`,
+          background: group.allSeen ? 'linear-gradient(135deg,#444,#333)' : `conic-gradient(${group.user.avatarColor || '#1D9E75'} 0%,#9FE1CB 50%,${group.user.avatarColor || '#1D9E75'} 100%)`,
+          boxShadow: group.allSeen ? 'none' : `0 0 12px ${group.user.avatarColor || '#1D9E75'}55`,
         }}>
         <div className="rounded-full overflow-hidden" style={{ background: 'var(--bg-card)', border: '2px solid var(--bg)' }}>
-          <UserAvatar user={group.user as any} size={56} />
+          <UserAvatar user={group.user} size={56} />
         </div>
       </button>
       <span className="text-[11px] font-medium truncate w-16 text-center" style={{ color: group.allSeen ? 'var(--text-muted)' : 'var(--text)' }}>
-        {(group.user as any).username ? '@' + (group.user as any).username : group.user.name.split(' ')[0]}
+        {group.user.username ? '@' + group.user.username : (group.user.name || '').split(' ')[0]}
         {group.stories.length > 1 && <sup className="ml-0.5 text-[9px]" style={{ color: '#1D9E75' }}>{group.stories.length}</sup>}
       </span>
     </div>
@@ -73,27 +83,29 @@ function StoryViewer({ groups, startGroupIdx, onClose, onSeen }: {
   useEffect(() => {
     if (!story) return
     onSeen(story.id)
-    // Görüldü kaydı
     if (session?.user && !isOwn) {
       fetch('/api/stories/view', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ storyId: story.id }),
       }).catch(() => {})
     }
-    // Sahibi - viewers fetch
     if (isOwn) {
       fetch(`/api/stories/view?storyId=${story.id}`, { cache: 'no-store' })
-        .then(r => r.json())
-        .then(d => setViewers(d.viewers || []))
+        .then(r => r.json()).then(d => setViewers(d.viewers || []))
         .catch(() => setViewers([]))
     }
     setProgress(0)
     if (intervalRef.current) clearInterval(intervalRef.current)
+
+    // Video hikayeleri için süre, görsel için 5sn
+    const duration = story.mediaType === 'video' ? 15 : 5
+    const step = 100 / (duration * 40)
+
     if (!paused && !burst) {
       intervalRef.current = setInterval(() => {
         setProgress(p => {
           if (p >= 100) { clearInterval(intervalRef.current!); goNext(); return 0 }
-          return p + 0.5
+          return p + step
         })
       }, 25)
     }
@@ -130,9 +142,22 @@ function StoryViewer({ groups, startGroupIdx, onClose, onSeen }: {
           onClick={e => e.stopPropagation()}
           onMouseDown={() => setPaused(true)} onMouseUp={() => setPaused(false)} onMouseLeave={() => setPaused(false)}
           onTouchStart={() => setPaused(true)} onTouchEnd={() => setPaused(false)}>
-          <div className="relative w-full max-w-[420px] h-full max-h-[840px] rounded-2xl overflow-hidden">
-            <div className="absolute inset-0" style={{ background: `linear-gradient(135deg, ${group.user.avatarColor}66, ${group.user.avatarColor}33, #0d0d0d)` }} />
+          <div className="relative w-full max-w-[420px] h-full max-h-[840px] rounded-2xl overflow-hidden" style={{ aspectRatio: '9/16', background: '#000' }}>
 
+            {/* Medya */}
+            {story.mediaUrl ? (
+              story.mediaType === 'video' ? (
+                <video src={story.mediaUrl} className="absolute inset-0 w-full h-full object-cover" autoPlay loop playsInline muted={paused} />
+              ) : (
+                <img src={story.mediaUrl} alt="" className="absolute inset-0 w-full h-full object-cover" />
+              )
+            ) : (
+              <div className="absolute inset-0 flex items-center justify-center" style={{ background: `linear-gradient(135deg, ${group.user.avatarColor || '#1D9E75'}66, #0d0d0d)` }}>
+                <span className="text-9xl">📸</span>
+              </div>
+            )}
+
+            {/* Progress bar */}
             <div className="absolute top-3 left-3 right-3 z-20 flex gap-1">
               {group.stories.map((_, i) => (
                 <div key={i} className="flex-1 h-0.5 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.2)' }}>
@@ -141,25 +166,19 @@ function StoryViewer({ groups, startGroupIdx, onClose, onSeen }: {
               ))}
             </div>
 
+            {/* Üst - yazar */}
             <button onClick={goToProfile} className="absolute top-7 left-3 z-20 flex items-center gap-2.5 hover:opacity-80">
-              <UserAvatar user={group.user as any} size={36} />
+              <UserAvatar user={group.user} size={36} />
               <div className="text-left">
                 <p className="text-white text-sm font-semibold">{group.user.name}</p>
-                <p className="text-white/50 text-xs">@{(group.user as any).username || group.user.name}</p>
+                <p className="text-white/70 text-xs">{timeAgo(story.createdAt)}</p>
               </div>
             </button>
 
+            {/* Kapat */}
             <button className="absolute top-5 right-4 z-30 text-white/70 text-2xl" onClick={onClose}>✕</button>
 
-            <div className="absolute inset-0 flex items-center justify-center flex-col gap-4">
-              {story.imageUrl ? (
-                <img src={story.imageUrl} alt={story.title} className="absolute inset-0 w-full h-full object-cover" />
-              ) : (
-                <span className="text-[200px]">{story.emoji}</span>
-              )}
-              <p className="text-white text-2xl font-semibold text-center px-8 relative z-10">{story.title}</p>
-            </div>
-
+            {/* Alt - tepki veya izleyenler */}
             <div className="absolute bottom-0 left-0 right-0 z-20 p-4" style={{ background: 'linear-gradient(to top,rgba(0,0,0,0.85),transparent)' }}>
               {isOwn ? (
                 <button onClick={() => setShowViewers(true)} className="w-full py-2.5 rounded-xl text-sm font-medium text-white" style={{ background: 'rgba(255,255,255,0.15)', backdropFilter: 'blur(8px)' }}>
@@ -220,31 +239,33 @@ function StoryViewer({ groups, startGroupIdx, onClose, onSeen }: {
   )
 }
 
-export default function StoriesBar() {
-  const [stories, setStories] = useState<Story[]>([])
+export default function StoriesBar({ initialStories = [] }: { initialStories?: Story[] } = {}) {
+  const [stories, setStories] = useState<Story[]>(initialStories)
   const [seenIds, setSeenIds] = useState<Set<string>>(new Set())
   const [viewIdx, setViewIdx] = useState<number | null>(null)
 
   useEffect(() => {
-    // MongoDB'den hikayeler
     fetch('/api/db/stories', { cache: 'no-store' })
       .then(r => r.json())
       .then((d: any) => {
-        if (Array.isArray(d) && d.length > 0) setStories(d as Story[])
-        else setStories(getAllStories())
+        if (Array.isArray(d)) setStories(d as Story[])
       })
-      .catch(() => setStories(getAllStories()))
+      .catch(() => {})
   }, [])
 
+  // Kullanıcı bazlı grupla, eski → yeni sıralı (kullanıcı içinde)
   const grouped: GroupedStory[] = []
-  const seenUsers = new Set<string>()
+  const userMap: Record<string, GroupedStory> = {}
   for (const s of stories) {
-    if (seenUsers.has(s.userId)) {
-      grouped.find(g => g.userId === s.userId)?.stories.push(s)
-    } else {
-      seenUsers.add(s.userId)
-      grouped.push({ userId: s.userId, user: s.user, stories: [s], allSeen: false })
+    if (!userMap[s.userId]) {
+      userMap[s.userId] = { userId: s.userId, user: s.user, stories: [], allSeen: false }
+      grouped.push(userMap[s.userId])
     }
+    userMap[s.userId].stories.push(s)
+  }
+  // Her kullanıcı için stories eskiden yeniye sıralansın (sol → sağ)
+  for (const g of grouped) {
+    g.stories.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
   }
   const updatedGroups = grouped.map(g => ({ ...g, allSeen: g.stories.every(s => seenIds.has(s.id)) }))
 

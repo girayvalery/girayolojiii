@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { getAllReels, getAllStories } from '@/lib/data'
+// Reels/stories MongoDB'den çekilir
 import UserAvatar from '@/components/avatar/UserAvatar'
 
 type Tab = 'overview'|'pending'|'published'|'users'|'videos'|'reels'|'stories'|'feedback'|'settings'
@@ -15,8 +15,8 @@ export default function AdminClient() {
   const [users, setUsers] = useState<any[]>([])
   const [videos, setVideos] = useState<any[]>([])
   const [feedback, setFeedback] = useState<any[]>([])
-  const [reels] = useState(() => getAllReels())
-  const [stories] = useState(() => getAllStories())
+  const [reels, setReels] = useState<any[]>([])
+  const [stories, setStories] = useState<any[]>([])
   const [selected, setSelected] = useState<any|null>(null)
   const [rejectNote, setRejectNote] = useState('')
   const [searchQuery, setSearchQuery] = useState('')
@@ -31,18 +31,22 @@ export default function AdminClient() {
   async function loadAll() {
     setLoading(true)
     try {
-      const [subs, posts, usersList, vids, fb] = await Promise.all([
+      const [subs, posts, usersList, vids, fb, reelsList, storiesList] = await Promise.all([
         fetch('/api/submissions', { cache: 'no-store' }).then(r => r.json()).catch(() => []),
         fetch('/api/db/posts', { cache: 'no-store' }).then(r => r.json()).catch(() => []),
         fetch('/api/db/users', { cache: 'no-store' }).then(r => r.json()).catch(() => []),
         fetch('/api/db/videos', { cache: 'no-store' }).then(r => r.json()).catch(() => []),
         fetch('/api/feedback', { cache: 'no-store' }).then(r => r.json()).catch(() => []),
+        fetch('/api/db/reels', { cache: 'no-store' }).then(r => r.json()).catch(() => []),
+        fetch('/api/db/stories', { cache: 'no-store' }).then(r => r.json()).catch(() => []),
       ])
       setPendingList(Array.isArray(subs) ? subs : [])
       setPublished(Array.isArray(posts) ? posts : [])
       setUsers(Array.isArray(usersList) ? usersList : [])
       setVideos(Array.isArray(vids) ? vids : [])
       setFeedback(Array.isArray(fb) ? fb : [])
+      setReels(Array.isArray(reelsList) ? reelsList : [])
+      setStories(Array.isArray(storiesList) ? storiesList : [])
     } catch (e) { console.error(e) }
     setLoading(false)
   }
@@ -257,13 +261,29 @@ export default function AdminClient() {
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
             {reels.length === 0 ? (
               <p className="col-span-full text-center py-10" style={{ color: 'var(--text-muted)' }}>Henüz kısa video yok.</p>
-            ) : reels.map(r => (
-              <div key={r.id} className="rounded-xl overflow-hidden" style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
-                <div className={`relative h-40 flex items-center justify-center bg-gradient-to-b ${r.bgGradient}`}>
-                  <span className="text-4xl">{r.emoji}</span>
+            ) : reels.map((r: any) => (
+              <div key={r.id || r._id} className="rounded-xl overflow-hidden" style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
+                <div className="relative bg-black" style={{ aspectRatio: '9/16' }}>
+                  {r.thumbnail ? (
+                    <img src={r.thumbnail} alt={r.title} className="absolute inset-0 w-full h-full object-cover" />
+                  ) : r.mediaUrl ? (
+                    <video src={r.mediaUrl} className="absolute inset-0 w-full h-full object-cover" muted playsInline preload="metadata" />
+                  ) : (
+                    <div className={`absolute inset-0 flex items-center justify-center text-4xl bg-gradient-to-b ${r.bgGradient || 'from-purple-900 to-purple-700'}`}>
+                      {r.emoji || '⚡'}
+                    </div>
+                  )}
                 </div>
                 <div className="p-3">
                   <p className="text-xs font-medium line-clamp-2" style={{ color: 'var(--text)' }}>{r.title}</p>
+                  <div className="flex gap-1 mt-2">
+                    <a href={`/reels/${r.slug || r.id}`} target="_blank" className="flex-1 text-center py-1 rounded text-[10px]" style={{ background: 'var(--bg-subtle)', color: 'var(--text)' }}>Görüntüle</a>
+                    <button onClick={async () => {
+                      if (!confirm('Silmek istediğine emin misin?')) return
+                      await fetch(`/api/db/reels/${r._id || r.id}`, { method: 'DELETE' })
+                      setReels((p: any[]) => p.filter(x => (x._id || x.id) !== (r._id || r.id)))
+                    }} className="flex-1 py-1 rounded text-[10px]" style={{ background: 'rgba(226,75,74,0.1)', color: '#e24b4a' }}>Sil</button>
+                  </div>
                 </div>
               </div>
             ))}
@@ -271,15 +291,42 @@ export default function AdminClient() {
         )}
 
         {!loading && tab === 'stories' && (
+          <>
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="text-base font-semibold" style={{ color: 'var(--text)' }}>📸 Hikayeler ({stories.length})</h2>
+              {stories.length > 0 && (
+                <button onClick={async () => {
+                  if (!confirm(`${stories.length} hikayeyi silmek istediğine emin misin?`)) return
+                  const res = await fetch('/api/admin/delete-all-stories', { method: 'POST' })
+                  const d = await res.json()
+                  if (res.ok) { alert(`${d.deleted} hikaye silindi`); setStories([]) }
+                  else alert('Silinemedi: ' + d.error)
+                }} className="px-3 py-1.5 rounded-lg text-xs font-medium text-white" style={{ background: '#e24b4a' }}>🗑️ Tümünü Sil</button>
+              )}
+            </div>
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-            {stories.map(s => (
-              <div key={s.id} className="rounded-xl p-4 text-center" style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
-                <div className="text-3xl mb-2">{s.emoji}</div>
-                <p className="text-xs font-medium" style={{ color: 'var(--text)' }}>{s.user.name}</p>
-                <p className="text-[10px]" style={{ color: 'var(--text-muted)' }}>{s.title}</p>
+            {stories.length === 0 ? (
+              <p className="col-span-full text-center py-10" style={{ color: 'var(--text-muted)' }}>Henüz hikaye yok.</p>
+            ) : stories.map((s: any) => (
+              <div key={s.id || s._id} className="rounded-xl overflow-hidden" style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
+                <div className="relative bg-black" style={{ aspectRatio: '9/16' }}>
+                  {s.mediaUrl ? (
+                    s.mediaType === 'video' ? (
+                      <video src={s.mediaUrl} className="absolute inset-0 w-full h-full object-cover" muted playsInline preload="metadata" />
+                    ) : (
+                      <img src={s.mediaUrl} alt="" className="absolute inset-0 w-full h-full object-cover" />
+                    )
+                  ) : (
+                    <div className="absolute inset-0 flex items-center justify-center text-4xl">📸</div>
+                  )}
+                </div>
+                <div className="p-2 text-center">
+                  <p className="text-xs font-medium truncate" style={{ color: 'var(--text)' }}>{s.user?.name}</p>
+                </div>
               </div>
             ))}
           </div>
+          </>
         )}
 
         {!loading && tab === 'feedback' && (

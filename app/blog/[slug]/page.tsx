@@ -1,5 +1,6 @@
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
+import RelatedReelBanner from '@/components/blog/RelatedReelBanner'
 import type { Metadata } from 'next'
 import { getDb } from '@/lib/mongodb'
 import { POSTS as fallbackPosts, type Post } from '@/lib/data'
@@ -29,7 +30,7 @@ async function getPost(slug: string): Promise<Post | null> {
         featured: !!d.featured, status: d.status || 'PUBLISHED',
         viewCount: d.viewCount || 0, likeCount: d.likeCount || 0,
         publishedAt: d.publishedAt || new Date().toISOString(),
-        coverImage: d.coverImage, youtubeId: d.youtubeId,
+        coverImage: d.coverImage, youtubeId: d.youtubeId, relatedReelId: d.relatedReelId,
         author: d.author || { id: 'anon', name: 'Anonim', username: 'anon', avatar: '👤', avatarColor: '#1D9E75' },
       }
     }
@@ -48,7 +49,7 @@ async function getRelated(post: Post, n = 6): Promise<Post[]> {
       category: d.category, tags: d.tags || [], readTime: d.readTime || 5,
       coverEmoji: d.coverEmoji || '📝', bgGradient: d.bgGradient || 'from-gray-800 to-gray-900',
       featured: !!d.featured, status: d.status, viewCount: d.viewCount || 0, likeCount: d.likeCount || 0,
-      publishedAt: d.publishedAt, coverImage: d.coverImage, youtubeId: d.youtubeId,
+      publishedAt: d.publishedAt, coverImage: d.coverImage, youtubeId: d.youtubeId, relatedReelId: d.relatedReelId,
       author: d.author || { id: 'anon', name: 'Anonim', username: 'anon', avatar: '👤', avatarColor: '#1D9E75' },
     }))
   } catch { return [] }
@@ -174,6 +175,9 @@ export default async function BlogDetailPage({ params }: { params: { slug: strin
           </Link>
 
           <ArticleInteractions postId={post.id} initialLikes={post.likeCount} />
+
+          {/* Kısa video kısayolu */}
+          {(post as any).relatedReelId && <RelatedReelBanner reelId={(post as any).relatedReelId} />}
 
           {post.youtubeId ? (
             <div className="mb-10">

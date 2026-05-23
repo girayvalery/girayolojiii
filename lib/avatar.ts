@@ -1,18 +1,23 @@
-// Bitmoji tarzı katmanlı SVG avatar sistemi
+// Bitmoji avatar - cinsiyetli, kafa yapısına tam oturan
+
+export type Gender = 'male' | 'female'
 
 export type AvatarConfig = {
-  skin: string       // ten rengi
-  hair: string       // saç stili
-  hairColor: string  // saç rengi
-  eyes: string       // göz stili
-  eyebrows: string   // kaş
-  mouth: string      // ağız
-  facial: string     // sakal/bıyık (veya yok)
-  accessory: string  // gözlük/şapka (veya yok)
-  bg: string         // arka plan rengi
+  gender: Gender
+  skin: string
+  hair: string
+  hairColor: string
+  eyes: string
+  eyebrows: string
+  mouth: string
+  facial: string  // sadece male
+  accessory: string
+  bg: string
+  lipColor: string  // ağız/dudak rengi (female için makyaj)
 }
 
 export const DEFAULT_AVATAR: AvatarConfig = {
+  gender: 'male',
   skin: '#F5C9A1',
   hair: 'short',
   hairColor: '#3D2914',
@@ -22,6 +27,7 @@ export const DEFAULT_AVATAR: AvatarConfig = {
   facial: 'none',
   accessory: 'none',
   bg: '#1D9E75',
+  lipColor: '#C16060',
 }
 
 export const SKIN_TONES = [
@@ -48,30 +54,47 @@ export const HAIR_COLORS = [
   { id: 'orange', color: '#E48B5B', label: 'Turuncu' },
 ]
 
-export const HAIR_STYLES = [
-  { id: 'bald', label: 'Kel', emoji: '🥚' },
-  { id: 'short', label: 'Kısa', emoji: '👨' },
-  { id: 'mid', label: 'Orta', emoji: '🧑' },
-  { id: 'long', label: 'Uzun', emoji: '👩' },
-  { id: 'curly', label: 'Kıvırcık', emoji: '🦱' },
-  { id: 'wavy', label: 'Dalgalı', emoji: '🌊' },
-  { id: 'mohawk', label: 'Mohikan', emoji: '🦅' },
-  { id: 'bun', label: 'Topuz', emoji: '🍩' },
-  { id: 'ponytail', label: 'At Kuyruğu', emoji: '🐎' },
-  { id: 'afro', label: 'Afro', emoji: '🎵' },
+// Erkek saç stilleri
+export const MALE_HAIR_STYLES = [
+  { id: 'bald', label: 'Kel' },
+  { id: 'short', label: 'Kısa' },
+  { id: 'short_messy', label: 'Dağınık' },
+  { id: 'spiky', label: 'Dikleştirilmiş' },
+  { id: 'side_part', label: 'Yan Ayrım' },
+  { id: 'curly_m', label: 'Kıvırcık' },
+  { id: 'mohawk', label: 'Mohikan' },
+  { id: 'undercut', label: 'Undercut' },
+  { id: 'wavy_m', label: 'Dalgalı' },
+  { id: 'mid_m', label: 'Orta' },
+]
+
+// Kız saç stilleri
+export const FEMALE_HAIR_STYLES = [
+  { id: 'long_f', label: 'Uzun Düz' },
+  { id: 'long_wavy', label: 'Uzun Dalgalı' },
+  { id: 'long_curly', label: 'Uzun Kıvırcık' },
+  { id: 'bob', label: 'Bob' },
+  { id: 'ponytail_f', label: 'At Kuyruğu' },
+  { id: 'bun_f', label: 'Topuz' },
+  { id: 'pigtails', label: 'İki Örgü' },
+  { id: 'short_f', label: 'Kısa Bayan' },
+  { id: 'side_swept', label: 'Yan Süpürme' },
+  { id: 'afro_f', label: 'Afro' },
 ]
 
 export const EYE_STYLES = [
   { id: 'normal', label: 'Normal' },
+  { id: 'big', label: 'Büyük' },
   { id: 'smiling', label: 'Gülen' },
   { id: 'wink', label: 'Göz Kırpan' },
   { id: 'shocked', label: 'Şaşkın' },
   { id: 'sleepy', label: 'Uykulu' },
-  { id: 'happy', label: 'Mutlu' },
 ]
 
 export const EYEBROW_STYLES = [
   { id: 'normal', label: 'Normal' },
+  { id: 'thick', label: 'Kalın' },
+  { id: 'thin', label: 'İnce' },
   { id: 'raised', label: 'Kalkık' },
   { id: 'angry', label: 'Sinirli' },
   { id: 'sad', label: 'Üzgün' },
@@ -79,11 +102,11 @@ export const EYEBROW_STYLES = [
 
 export const MOUTH_STYLES = [
   { id: 'smile', label: 'Gülümseme' },
-  { id: 'big_smile', label: 'Büyük Gülümseme' },
+  { id: 'big_smile', label: 'Geniş Gülümseme' },
   { id: 'neutral', label: 'Doğal' },
   { id: 'sad', label: 'Üzgün' },
   { id: 'shock', label: 'Şaşkın' },
-  { id: 'tongue', label: 'Dil' },
+  { id: 'kiss', label: 'Öpücük' },
 ]
 
 export const FACIAL_STYLES = [
@@ -91,7 +114,7 @@ export const FACIAL_STYLES = [
   { id: 'mustache', label: 'Bıyık' },
   { id: 'goatee', label: 'Keçi Sakal' },
   { id: 'full_beard', label: 'Tam Sakal' },
-  { id: 'soul_patch', label: 'Alt Dudak' },
+  { id: 'stubble', label: 'Sakal Tıraşsız' },
 ]
 
 export const ACCESSORY_STYLES = [
@@ -101,9 +124,23 @@ export const ACCESSORY_STYLES = [
   { id: 'round_glasses', label: 'Yuvarlak Gözlük' },
   { id: 'hat', label: 'Şapka' },
   { id: 'cap', label: 'Kep' },
+  { id: 'beanie', label: 'Bere' },
+]
+
+export const LIP_COLORS = [
+  { id: 'natural', color: '#C16060', label: 'Doğal' },
+  { id: 'pink', color: '#E48BB6', label: 'Pembe' },
+  { id: 'red', color: '#D32F2F', label: 'Kırmızı' },
+  { id: 'berry', color: '#8B2C5C', label: 'Bordo' },
+  { id: 'nude', color: '#B07D6A', label: 'Çıplak' },
+  { id: 'coral', color: '#E08070', label: 'Mercan' },
 ]
 
 export const BG_COLORS = [
   '#1D9E75', '#534AB7', '#185fa5', '#D4537E', '#D85A30', '#ba7517',
   '#1AAE9F', '#7F77DD', '#639922', '#FF6B35', '#A0421C', '#0F6E56',
 ]
+
+export function getHairStyles(gender: Gender) {
+  return gender === 'male' ? MALE_HAIR_STYLES : FEMALE_HAIR_STYLES
+}
